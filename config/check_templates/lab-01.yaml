@@ -1,0 +1,41 @@
+# Лаба 01 Apache с кастомным VirtualHost
+# Демонстрирует все встроенные типы проверок
+# Добавляй свои шаблоны рядом по одному YAML на каждую лабу
+# Запуск через API POST /api/v1/stands/<id>/checks { "template_name": "lab-01" }
+name: "Лаба 01 Apache с кастомным VirtualHost"
+version: "1"
+description: >-
+  Студент должен установить Apache, поднять сервис, открыть порт 80
+  и подготовить конфиг сайта с директивой ServerName
+
+checks:
+  - name: пакет apache2 установлен
+    type: package_installed
+    package: apache2
+
+  - name: сервис apache2 активен
+    type: systemd_active
+    unit: apache2
+
+  - name: порт 80/tcp слушается
+    type: port_listening
+    port: 80
+    protocol: tcp
+
+  - name: конфиг кастомного сайта существует
+    type: file_exists
+    path: /etc/apache2/sites-available/custom.conf
+
+  - name: в конфиге задана директива ServerName
+    type: file_contains
+    path: /etc/apache2/sites-available/custom.conf
+    pattern: '^\s*ServerName\s+\S+'
+
+  - name: localhost возвращает HTTP 200
+    type: command_exit_zero
+    cmd: "curl -fsS -o /dev/null -w '%{http_code}' http://localhost/ | grep -q '^200$'"
+
+  - name: заголовок Server в ответе содержит Apache
+    type: command_output_matches
+    cmd: "curl -sI http://localhost/ | tr -d '\\r'"
+    pattern: '^Server:\s+Apache'

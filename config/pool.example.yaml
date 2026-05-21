@@ -1,0 +1,26 @@
+# Пример наполнения пула проектов КИ.
+#
+# Скопируйте этот файл в config/pool.yaml и подставьте свои значения —
+# init_db.py засеет пул автоматически при следующем `docker compose up --build`.
+#
+# Все идентификаторы берутся из вашей КИ:
+#   ki_project_id   = openstack project show <name> -f value -c id
+#   ki_domain_id    = openstack domain show <name> -f value -c id
+#   ki_network_id   = openstack network show <name> -f value -c id   (внутри проекта)
+#   ki_router_id    = openstack router show <name>  -f value -c id   (опционально)
+#
+# status по умолчанию = free.
+
+- ki_project_id:    "REPLACE-WITH-PROJECT-UUID-1"
+  ki_project_name:  course-cloud-lab-01
+  ki_domain_id:     "REPLACE-WITH-DOMAIN-UUID"
+  ki_domain_name:   course-cloud
+  ki_network_id:    "REPLACE-WITH-NETWORK-UUID-1"
+  ki_router_id:     "REPLACE-WITH-ROUTER-UUID-1"
+
+- ki_project_id:    "REPLACE-WITH-PROJECT-UUID-2"
+  ki_project_name:  course-cloud-lab-02
+  ki_domain_id:     "REPLACE-WITH-DOMAIN-UUID"
+  ki_domain_name:   course-cloud
+  ki_network_id:    "REPLACE-WITH-NETWORK-UUID-2"
+  ki_router_id:     "REPLACE-WITH-ROUTER-UUID-2"
