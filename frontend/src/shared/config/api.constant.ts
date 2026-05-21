@@ -1,0 +1,7 @@
+
+export const POLLING_INTERVAL_MS = {
+  TRANSITION: 2_000,
+  TERMINAL: 8_000,
+  CAPACITY: 10_000,
+  INSPECTOR_ACTIVE: 1_500,
+} as const;
