@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Лабораторная работа №1 — Дистанционное обучение РТУ МИРЭА</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --m-navy: #1d4d8c;
+      --m-navy-dark: #15396a;
+      --m-link: #0f6cbf;
+      --m-link-hover: #094d8a;
+      --m-text: #1d2125;
+      --m-text-soft: #6a737d;
+      --m-bg: #f5f6f8;
+      --m-border: #d6dadf;
+      --m-card-bg: #ffffff;
+      --m-success-bg: #d4edda;
+      --m-success-text: #155724;
+      --m-success-border: #c3e6cb;
+      --m-pink: #d63384;
+      --m-pink-bg: #fbe5ee;
+      --m-row-bg: #e8f3ee;
+      --m-row-border: #d4e9dc;
+    }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Roboto", -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--m-bg);
+      color: var(--m-text);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    a { color: var(--m-link); text-decoration: none; }
+    a:hover { color: var(--m-link-hover); text-decoration: underline; }
+
+    /* ───────── top bar ───────── */
+    .topbar {
+      background: var(--m-navy);
+      color: #fff;
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 1px 0 rgba(0,0,0,.1);
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      color: #fff;
+      font-weight: 600;
+      font-size: 17px;
+      letter-spacing: -.2px;
+    }
+    .brand:hover { color: #fff; text-decoration: none; }
+    .eagle {
+      width: 42px; height: 42px;
+      background: #fff;
+      border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .topbar nav {
+      display: flex;
+      gap: 4px;
+      margin-left: auto;
+    }
+    .topbar nav a {
+      color: rgba(255,255,255,.92);
+      padding: 8px 14px;
+      font-size: 14px;
+      border-radius: 4px;
+      font-weight: 400;
+    }
+    .topbar nav a:hover { background: rgba(255,255,255,.1); text-decoration: none; color: #fff; }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-left: 12px;
+      border-left: 1px solid rgba(255,255,255,.15);
+    }
+    .bell {
+      position: relative;
+      width: 36px; height: 36px;
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      border-radius: 50%;
+      transition: background .15s;
+    }
+    .bell:hover { background: rgba(255,255,255,.12); }
+    .bell svg { width: 20px; height: 20px; }
+    .bell-badge {
+      position: absolute;
+      top: -2px; right: -2px;
+      background: #d63b3b;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 5px;
+      border-radius: 999px;
+      line-height: 1;
+      min-width: 18px;
+      text-align: center;
+    }
+    .topbar-avatar {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      padding: 2px 4px 2px 2px;
+      border-radius: 999px;
+      transition: background .15s;
+    }
+    .topbar-avatar:hover { background: rgba(255,255,255,.1); }
+    .topbar-avatar .avatar-circle {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #c8d8ed, #a1b9d4);
+      color: var(--m-navy-dark);
+      border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .topbar-avatar .chev {
+      color: #fff;
+      font-size: 10px;
+    }
+
+    /* ───────── layout ───────── */
+    .page {
+      display: flex;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0;
+      position: relative;
+    }
+    main {
+      flex: 1;
+      padding: 24px 32px 80px;
+      min-width: 0;
+    }
+
+    .breadcrumb {
+      font-size: 14px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 4px;
+      color: var(--m-text-soft);
+    }
+    .breadcrumb a { color: var(--m-link); }
+    .breadcrumb .sep { color: #adb5bd; margin: 0 4px; }
+    .breadcrumb .current { color: var(--m-text); }
+
+    .activity-title-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .activity-icon {
+      width: 36px; height: 36px;
+      background: var(--m-pink-bg);
+      color: var(--m-pink);
+      border-radius: 6px;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .activity-icon svg { width: 22px; height: 22px; }
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -.3px;
+      color: var(--m-text);
+    }
+
+    .info-card {
+      background: var(--m-card-bg);
+      border: 1px solid var(--m-border);
+      border-radius: 4px;
+      padding: 22px 26px;
+      margin-bottom: 16px;
+    }
+
+    .completion-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--m-success-bg);
+      color: var(--m-success-text);
+      border: 1px solid var(--m-success-border);
+      padding: 8px 18px;
+      border-radius: 999px;
+      font-size: 14px;
+      margin-bottom: 18px;
+    }
+    .completion-pill svg { width: 14px; height: 14px; }
+    .completion-pill strong { font-weight: 700; }
+
+    .meta-row {
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    .meta-row strong { font-weight: 700; }
+
+    .divider {
+      height: 1px;
+      background: var(--m-border);
+      margin: 18px 0;
+    }
+
+    .description {
+      margin: 14px 0 18px;
+      font-size: 15px;
+      line-height: 1.55;
+      color: var(--m-text);
+    }
+
+    .files-block { margin-top: 6px; }
+    .files-block h3 {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0 0 12px;
+      color: var(--m-text);
+    }
+    .file-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 14px;
+      align-items: center;
+      padding: 6px 0;
+      font-size: 14px;
+    }
+    .file-icon {
+      width: 22px; height: 28px;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-size: 10px;
+      font-weight: 700;
+      color: #fff;
+      border-radius: 2px;
+    }
+    .file-icon.doc { background: #2b579a; }
+    .file-icon.pdf { background: #b30b00; }
+    .file-row .file-date { color: var(--m-text-soft); font-size: 13px; }
+
+    /* ───────── section heading ───────── */
+    h2.section-title {
+      font-size: 28px;
+      font-weight: 700;
+      margin: 32px 0 18px;
+      color: var(--m-text);
+      letter-spacing: -.3px;
+    }
+
+    /* ───────── status table ───────── */
+    .status-table {
+      background: var(--m-card-bg);
+      border: 1px solid var(--m-border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .status-row {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      border-bottom: 1px solid var(--m-row-border);
+    }
+    .status-row:last-child { border-bottom: none; }
+    .status-row > div {
+      padding: 16px 22px;
+      background: var(--m-row-bg);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .status-row .label {
+      font-weight: 700;
+      color: var(--m-text);
+    }
+
+    /* ───────── external tool block ───────── */
+    .ext-tool-block {
+      background: var(--m-card-bg);
+      border: 1px solid var(--m-border);
+      border-radius: 4px;
+      padding: 22px 26px;
+      margin-top: 20px;
+    }
+    .ext-tool-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--m-border);
+      margin-bottom: 18px;
+    }
+    .ext-tool-logo {
+      width: 44px; height: 44px;
+      border-radius: 8px;
+      background: #1b5e3f;
+      color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .ext-tool-title {
+      font-size: 17px;
+      font-weight: 700;
+      margin: 0;
+      color: var(--m-text);
+    }
+    .ext-tool-by {
+      font-size: 12px;
+      color: var(--m-text-soft);
+      margin-top: 2px;
+    }
+    .ext-tool-lead {
+      margin: 0 0 18px;
+      color: var(--m-text-soft);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .lab-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px 28px;
+      padding: 12px 16px;
+      background: #f6f8fa;
+      border: 1px solid var(--m-border);
+      border-radius: 4px;
+      margin-bottom: 16px;
+    }
+    .lab-meta.hide { display: none; }
+    .lab-meta-row {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .lab-meta-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--m-text-soft);
+      font-weight: 600;
+    }
+    .lab-meta-value {
+      font-size: 14px;
+      color: var(--m-text);
+      font-weight: 600;
+    }
+    .lab-meta-value.mono {
+      font-family: ui-monospace, "JetBrains Mono", monospace;
+      font-weight: 500;
+    }
+
+    /* ───────── lab selector ───────── */
+    .lab-select-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: #eef4fb;
+      border: 1px solid #b6d4fe;
+      border-radius: 4px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .lab-select-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #084298;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      flex-shrink: 0;
+    }
+    .lab-select {
+      flex: 1;
+      min-width: 240px;
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--m-text);
+      padding: 8px 12px;
+      border: 1px solid var(--m-border);
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+    }
+    .lab-select:focus {
+      outline: none;
+      border-color: var(--m-link);
+      box-shadow: 0 0 0 3px rgba(15, 108, 191, .12);
+    }
+    .lab-select:disabled {
+      background: #f0f2f5;
+      cursor: not-allowed;
+      color: var(--m-text-soft);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      background: var(--m-link);
+      color: #fff;
+      border: none;
+      padding: 9px 22px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background .15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn:hover { background: var(--m-link-hover); }
+    .btn:disabled { background: #a8b5c2; cursor: not-allowed; }
+    .btn .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .hint {
+      font-size: 13px;
+      color: var(--m-text-soft);
+    }
+    .hint code {
+      background: #f0f2f5;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: ui-monospace, "JetBrains Mono", monospace;
+      font-size: 12px;
+    }
+
+    /* ───────── alerts ───────── */
+    .alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin-top: 14px;
+      font-size: 14px;
+    }
+    .alert-icon {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-weight: 700;
+      font-size: 11px;
+    }
+    .alert.warn { background: #fff8db; color: #6c4a08; border: 1px solid #f4d99e; }
+    .alert.warn .alert-icon { background: #d4a017; color: #fff; }
+    .alert.info { background: #cfe2ff; color: #084298; border: 1px solid #b6d4fe; }
+    .alert.info .alert-icon { background: var(--m-link); color: #fff; }
+    .alert.error { background: #f8d7da; color: #842029; border: 1px solid #f5c2c7; }
+    .alert.error .alert-icon { background: #c3303c; color: #fff; }
+    .alert.success { background: var(--m-success-bg); color: var(--m-success-text); border: 1px solid var(--m-success-border); }
+    .alert.success .alert-icon { background: #1f8a4f; color: #fff; }
+    .alert.hide { display: none; }
+    .alert a { color: inherit; font-weight: 700; text-decoration: underline; }
+
+    /* ───────── iframe area ───────── */
+    .iframe-wrap {
+      margin-top: 24px;
+      animation: fade-in .3s ease-out;
+    }
+    .iframe-wrap-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 12px;
+      color: var(--m-text-soft);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .iframe-wrap-header::before, .iframe-wrap-header::after {
+      content: ""; flex: 1; height: 1px; background: var(--m-border);
+    }
+    iframe {
+      width: 100%;
+      height: 900px;
+      border: 1px solid var(--m-border);
+      border-radius: 4px;
+      background: #fff;
+    }
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ───────── user dropdown ───────── */
+    .top-actions { position: relative; }
+    .user-menu {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      background: #fff;
+      border: 1px solid var(--m-border);
+      border-radius: 6px;
+      box-shadow: 0 6px 20px rgba(0,0,0,.12);
+      padding: 12px;
+      min-width: 240px;
+      z-index: 60;
+      color: var(--m-text);
+      display: none;
+    }
+    .user-menu.open { display: block; }
+    .user-menu-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--m-border);
+      margin-bottom: 10px;
+    }
+    .user-menu-avatar {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: #fff;
+      font-weight: 700;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .user-menu-info { min-width: 0; flex: 1; }
+    .user-menu-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--m-text);
+    }
+    .user-menu-group {
+      font-size: 12px;
+      color: var(--m-text-soft);
+      font-family: ui-monospace, "JetBrains Mono", monospace;
+      margin-top: 2px;
+    }
+    .user-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 10px;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--m-link);
+      font-family: inherit;
+      transition: background .15s;
+      text-align: left;
+    }
+    .user-menu-item:hover { background: #f0f4f8; }
+
+    .student-banner {
+      background: linear-gradient(90deg, #e3f2fd 0%, #f8fafc 100%);
+      border-bottom: 1px solid #c5dcf0;
+      padding: 10px 24px;
+      font-size: 13px;
+      color: #084298;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: center;
+    }
+    .student-banner-badge {
+      background: var(--m-link);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    /* ───────── floating offline chat ───────── */
+    .chat-tab {
+      position: fixed;
+      right: 0;
+      top: 60%;
+      writing-mode: vertical-rl;
+      transform: translateY(-50%) rotate(180deg);
+      background: linear-gradient(180deg, #1d4d8c, #2563a8);
+      color: #fff;
+      padding: 14px 8px;
+      border-radius: 8px 0 0 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: -2px 2px 8px rgba(0,0,0,.15);
+      z-index: 40;
+    }
+  </style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="#" class="brand">
+    <span>Дистанционное обучение РТУ МИРЭА</span>
+  </a>
+  <nav>
+    <a href="#">В начало</a>
+    <a href="#">Мои курсы</a>
+    <a href="#">Все дисциплины</a>
+  </nav>
+  <div class="top-actions">
+    <div class="topbar-avatar" id="topbar-user" title="">
+      <span class="avatar-circle" id="topbar-avatar-circle">??</span>
+      <span class="chev">▾</span>
+    </div>
+    <div class="user-menu" id="user-menu">
+      <div class="user-menu-header">
+        <span class="user-menu-avatar" id="menu-avatar">??</span>
+        <div class="user-menu-info">
+          <div class="user-menu-name" id="menu-name">—</div>
+          <div class="user-menu-group" id="menu-group">—</div>
+        </div>
+      </div>
+      <button type="button" class="user-menu-item" id="switch-user-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <polyline points="16 11 19 14 22 11"/>
+          <line x1="19" y1="14" x2="19" y2="3"/>
+        </svg>
+        Сменить пользователя
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="student-banner">
+  <span class="student-banner-badge">DEMO</span>
+  <span>
+    Вы вошли как <strong id="banner-name">—</strong> · группа <strong id="banner-group">—</strong>
+  </span>
+</div>
+
+<div class="page">
+  <main>
+    <div class="breadcrumb">
+      <a href="#">Домашняя страница</a>
+      <span class="sep">/</span>
+      <a href="#" id="breadcrumb-course">Базы данных для индустриальных задач 2/2 [II.25-26]_278</a>
+      <span class="sep">/</span>
+      <a href="#">Лабораторные работы</a>
+      <span class="sep">/</span>
+      <span class="current" id="breadcrumb-current">Лабораторная работа</span>
+    </div>
+
+    <div class="activity-title-row">
+      <span class="activity-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </span>
+      <h1 id="lab-title">Лабораторная работа</h1>
+    </div>
+
+    <div class="info-card">
+      <div class="completion-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        <span><strong>К сдаче:</strong> запустите стенд через внешний инструмент</span>
+      </div>
+
+      <div class="meta-row"><strong>Открыто с:</strong> понедельник, 12 мая 2026, 00:00</div>
+      <div class="meta-row"><strong>Срок сдачи:</strong> понедельник, 26 мая 2026, 23:59</div>
+
+      <div class="divider"></div>
+
+      <div id="lab-description" class="description">
+        Запустите внешний инструмент и выполните задание во временном стенде.
+      </div>
+
+      <div class="files-block">
+        <h3>Имя файла отчёта: ФИО_лаб (Иванов_ИИ_лаб)</h3>
+        <div class="file-row">
+          <span class="file-icon doc">DOC</span>
+          <a href="#">Образец титульного листа.docx</a>
+          <span class="file-date">5 мая 2026, 11:29</span>
+        </div>
+        <div class="file-row">
+          <span class="file-icon pdf">PDF</span>
+          <a href="#">Методичка по лабораторной работе.pdf</a>
+          <span class="file-date">28 апреля 2026, 19:23</span>
+        </div>
+      </div>
+    </div>
+
+    <section class="ext-tool-block">
+      <header class="ext-tool-header">
+        <div class="ext-tool-logo">
+          <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
+            <path d="M9.5 19.5C8.119 19.5 7 18.381 7 17C7 15.7355 7.943 14.6915 9.165 14.5215C9.6125 12.5125 11.434 11 13.6 11C15.7095 11 17.491 12.421 18.014 14.353C18.18 14.34 18.348 14.333 18.518 14.333C20.6685 14.333 22.412 16.0765 22.412 18.227C22.412 20.3775 20.6685 22.121 18.518 22.121H9.5"
+              stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="22.5" cy="11" r="1.6" fill="#7bcba9"/>
+          </svg>
+        </div>
+        <div>
+          <p class="ext-tool-title">Внешний инструмент: Cloud-Lab Manager</p>
+          <p class="ext-tool-by">LTI 1.3 персональный стенд КИ</p>
+        </div>
+      </header>
+
+      <p class="ext-tool-lead">
+        Запустите персональный стенд одним кликом. Оркестратор выделит изолированный
+        проект КИ из пула, развернёт VM по образу лабы и вернёт SSH-доступ. Через 2 часа
+        стенд автоматически удалится, проект вернётся в пул.
+      </p>
+
+      <div class="lab-select-row">
+        <label class="lab-select-label" for="mapping-select">Активность LTI:</label>
+        <select id="mapping-select" class="lab-select" disabled>
+          <option value="">Загружаем активности…</option>
+        </select>
+      </div>
+
+      <div id="lab-meta" class="lab-meta hide">
+        <div class="lab-meta-row">
+          <span class="lab-meta-label">Лаба</span>
+          <span class="lab-meta-value" id="lab-meta-code">—</span>
+        </div>
+        <div class="lab-meta-row">
+          <span class="lab-meta-label">Домен КИ</span>
+          <span class="lab-meta-value mono" id="lab-meta-domain">—</span>
+        </div>
+        <div class="lab-meta-row">
+          <span class="lab-meta-label">Курс LMS</span>
+          <span class="lab-meta-value mono" id="lab-meta-course">—</span>
+        </div>
+        <div class="lab-meta-row">
+          <span class="lab-meta-label">context_id</span>
+          <span class="lab-meta-value mono" id="lab-meta-context">—</span>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button id="launch-btn" class="btn" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          <span class="btn-label">Запустить Cloud-Lab</span>
+        </button>
+      </div>
+
+      <div id="status" class="alert hide"></div>
+    </section>
+
+    <h2 class="section-title">Состояние ответа</h2>
+    <div class="status-table">
+      <div class="status-row">
+        <div class="label">Состояние ответа на задание</div>
+        <div>Стенд активен · ожидаем отчёт</div>
+      </div>
+      <div class="status-row">
+        <div class="label">Состояние оценивания</div>
+        <div>Не оценено</div>
+      </div>
+      <div class="status-row">
+        <div class="label">Оставшееся время</div>
+        <div>До срока сдачи осталось — 11 дн. 4 час.</div>
+      </div>
+      <div class="status-row">
+        <div class="label">Последнее изменение</div>
+        <div>пятница, 15 мая 2026, 10:29</div>
+      </div>
+    </div>
+
+    <div id="iframe-wrap" class="iframe-wrap" style="display: none;">
+      <div class="iframe-wrap-header">область студента внутри Moodle iframe</div>
+      <iframe id="stand-iframe" src="about:blank"></iframe>
+    </div>
+  </main>
+</div>
+
+
+<script>
+  // ───────── status / button helpers ─────────
+  function setStatus(msg, kind) {
+    const el = document.getElementById('status');
+    el.className = 'alert ' + (kind || 'info');
+    const icon = kind === 'error' ? '!' : kind === 'success' ? 'OK' : 'i';
+    el.innerHTML = '<span class="alert-icon">' + icon + '</span><div>' + msg + '</div>';
+  }
+  function hideStatus() {
+    document.getElementById('status').className = 'alert hide';
+  }
+
+  function setBtnLoading(loading) {
+    const btn = document.getElementById('launch-btn');
+    if (loading) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span><span class="btn-label">Запускаем…</span>';
+    } else {
+      btn.disabled = !ACTIVE_MAPPING;
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg><span class="btn-label">Запустить Cloud-Lab</span>';
+    }
+  }
+
+  // ───────── mappings state ─────────
+  let MAPPINGS = [];
+  let ACTIVE_MAPPING = null;
+
+  function defaultTitleFor(m) {
+    return m.title || ('Лабораторная работа — ' + (m.lab_code || m.lti_context_id));
+  }
+
+  function applyMapping(m) {
+    ACTIVE_MAPPING = m;
+    const title = defaultTitleFor(m);
+
+    document.title = title + ' — Дистанционное обучение РТУ МИРЭА';
+    document.getElementById('lab-title').textContent = title;
+    document.getElementById('breadcrumb-current').textContent = title;
+    document.getElementById('breadcrumb-course').textContent =
+      'Курс ' + (m.course_code || m.ki_domain_name || '—');
+
+    const desc = document.getElementById('lab-description');
+    desc.textContent = m.description
+      || 'Запустите внешний инструмент и выполните задание во временном стенде.';
+
+    document.getElementById('lab-meta-code').textContent = m.lab_code || '—';
+    document.getElementById('lab-meta-domain').textContent = m.ki_domain_name || '—';
+    document.getElementById('lab-meta-course').textContent = m.course_code || '—';
+    document.getElementById('lab-meta-context').textContent = m.lti_context_id || '—';
+    document.getElementById('lab-meta').classList.remove('hide');
+
+    const btn = document.getElementById('launch-btn');
+    btn.disabled = false;
+
+    const url = new URL(location.href);
+    url.searchParams.set('mapping', m.id);
+    history.replaceState(null, '', url.toString());
+  }
+
+  function showNoMappings() {
+    const sel = document.getElementById('mapping-select');
+    sel.innerHTML = '<option value="">— нет маппингов, создайте в /admin/mappings —</option>';
+    sel.disabled = true;
+    setStatus(
+      'В системе нет ни одного маппинга курса. Зайдите в <a href="/admin/mappings" target="_blank">/admin/mappings</a> и создайте сопоставление.',
+      'warn'
+    );
+  }
+
+  async function loadMappings() {
+    const sel = document.getElementById('mapping-select');
+    try {
+      const resp = await fetch('/api/v1/lti/mappings', { credentials: 'include' });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      MAPPINGS = await resp.json();
+    } catch (e) {
+      sel.innerHTML = '<option value="">— ошибка загрузки</option>';
+      sel.disabled = true;
+      setStatus('Не удалось загрузить активности: ' + e.message, 'error');
+      return;
+    }
+
+    if (MAPPINGS.length === 0) {
+      showNoMappings();
+      return;
+    }
+
+    sel.innerHTML = '';
+    for (const m of MAPPINGS) {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = (m.lab_code || 'без кода')
+        + ' · ' + (m.course_code || m.ki_domain_name || '—')
+        + (m.title ? ' — ' + m.title : '');
+      sel.appendChild(opt);
+    }
+    sel.disabled = false;
+
+    const params = new URLSearchParams(location.search);
+    const wanted = params.get('mapping');
+    const chosen = (wanted && MAPPINGS.find(x => x.id === wanted)) || MAPPINGS[0];
+    sel.value = chosen.id;
+    applyMapping(chosen);
+  }
+
+  // ───────── launch via REST fallback (без admin auth) ─────────
+  async function launchStand() {
+    if (!ACTIVE_MAPPING) {
+      setStatus('Сначала выберите активность LTI', 'error');
+      return;
+    }
+    if (!STUDENT || !STUDENT.external_id) {
+      setStatus('Студент не выбран — перенаправляем на вход', 'error');
+      setTimeout(() => (location.href = '/fake-moodle-login.html'), 1500);
+      return;
+    }
+
+    const iframeWrap = document.getElementById('iframe-wrap');
+    const iframe = document.getElementById('stand-iframe');
+
+    setBtnLoading(true);
+    setStatus('Запрашиваем стенд у оркестратора через LTI gateway…', 'info');
+
+    try {
+      const resp = await fetch('/api/v1/integrations/moodle/launch', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: STUDENT.external_id,
+          user_display_name: STUDENT.full_name || STUDENT.name || STUDENT.external_id,
+          lti_context_id: ACTIVE_MAPPING.lti_context_id,
+          resource_link_id: ACTIVE_MAPPING.resource_link_id || undefined
+        })
+      });
+
+      if (!resp.ok) {
+        const body = await resp.text();
+        let detail = body;
+        try { detail = JSON.parse(body).detail || body; } catch {}
+        throw new Error('HTTP ' + resp.status + ': ' + detail);
+      }
+
+      const data = await resp.json();
+      const standId = data.stand_id;
+      const url = new URL(location.href);
+      url.searchParams.set('stand', standId);
+      history.replaceState(null, '', url.toString());
+
+      setStatus(
+        'Стенд <code style="background:rgba(0,0,0,.05);padding:1px 5px;border-radius:3px;font-family:monospace;">'
+          + standId.slice(0, 8) + '…</code> создан, открываем студенческий интерфейс…',
+        'success'
+      );
+
+      iframe.src = '/lti/launching/' + standId;
+      iframeWrap.style.display = 'block';
+      iframeWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(hideStatus, 4000);
+    } catch (e) {
+      setStatus('Ошибка запуска: ' + e.message, 'error');
+    } finally {
+      setBtnLoading(false);
+    }
+  }
+
+  function maybeShowPreloaded() {
+    const params = new URLSearchParams(location.search);
+    const standId = params.get('stand');
+    if (!standId) return;
+    document.getElementById('iframe-wrap').style.display = 'block';
+    document.getElementById('stand-iframe').src = '/lti/launching/' + standId;
+  }
+
+  // ───────── mock-student session ─────────
+  const STUDENT_STORAGE_KEY = "mock-student";
+
+  function readStudent() {
+    try {
+      const raw = localStorage.getItem(STUDENT_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // ?student=<external_id> перебивает localStorage и не пишется в него
+  // даёт изолированную сессию на вкладку для тестов параллельных студентов
+  async function resolveUrlStudent() {
+    const params = new URLSearchParams(location.search);
+    const externalId = params.get('student');
+    if (!externalId) return null;
+    try {
+      const resp = await fetch('/mock-students.json', { cache: 'no-store' });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const all = await resp.json();
+      const found = all.find(s => s.external_id === externalId);
+      if (found) return { ...found, __from_url: true };
+      setStatus('Студент <code>' + externalId + '</code> не найден в /mock-students.json', 'error');
+      return null;
+    } catch (e) {
+      setStatus('Не удалось проверить параметр ?student: ' + e.message, 'error');
+      return null;
+    }
+  }
+
+  async function requireStudent() {
+    const fromUrl = await resolveUrlStudent();
+    if (fromUrl) return fromUrl;
+
+    const s = readStudent();
+    if (!s) {
+      window.location.replace("/fake-moodle-login.html");
+      return null;
+    }
+    return s;
+  }
+
+  function renderStudent(s) {
+    const circle = document.getElementById("topbar-avatar-circle");
+    circle.textContent = s.initials;
+    circle.style.background = s.gradient;
+    circle.style.color = "#fff";
+    document.getElementById("topbar-user").title = s.full_name + " · " + s.group;
+
+    const menuAvatar = document.getElementById("menu-avatar");
+    menuAvatar.textContent = s.initials;
+    menuAvatar.style.background = s.gradient;
+    document.getElementById("menu-name").textContent = s.full_name;
+    document.getElementById("menu-group").textContent = s.group + " · " + s.external_id;
+
+    document.getElementById("banner-name").textContent = s.full_name;
+    document.getElementById("banner-group").textContent = s.group;
+  }
+
+  function bindUserMenu() {
+    const trigger = document.getElementById("topbar-user");
+    const menu = document.getElementById("user-menu");
+    const switchBtn = document.getElementById("switch-user-btn");
+
+    trigger.addEventListener("click", (event) => {
+      event.stopPropagation();
+      menu.classList.toggle("open");
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!menu.contains(event.target) && !trigger.contains(event.target)) {
+        menu.classList.remove("open");
+      }
+    });
+
+    switchBtn.addEventListener("click", () => {
+      localStorage.removeItem(STUDENT_STORAGE_KEY);
+      window.location.href = "/fake-moodle-login.html";
+    });
+  }
+
+  function bindMappingSelect() {
+    const sel = document.getElementById('mapping-select');
+    sel.addEventListener('change', () => {
+      const m = MAPPINGS.find(x => x.id === sel.value);
+      if (m) {
+        applyMapping(m);
+        hideStatus();
+      }
+    });
+  }
+
+  // STUDENT инициализируется асинхронно потому что ?student=<external_id>
+  // требует fetch /mock-students.json для резолва полного профиля
+  let STUDENT = null;
+
+  (async function bootstrap() {
+    STUDENT = await requireStudent();
+    if (!STUDENT) return;
+    renderStudent(STUDENT);
+    bindUserMenu();
+    bindMappingSelect();
+    document.getElementById('launch-btn').addEventListener('click', launchStand);
+    loadMappings();
+    maybeShowPreloaded();
+  })();
+</script>
+
+</body>
+</html>
