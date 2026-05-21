@@ -1,0 +1,67 @@
+[project]
+name = "cloud-lab-manager"
+version = "0.1.0"
+description = "Шлюз лабораторных стендов на платформе Кибер Инфраструктура"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30.0",
+    "openstacksdk>=4.0.0",
+    "structlog>=24.4.0",
+    "httpx>=0.27.0",
+    "tenacity>=9.0.0",
+    "celery[redis]>=5.4.0",
+    "redis>=5.2.0",
+    "psycopg2-binary>=2.9.10",
+    "asyncssh>=2.18.0",
+    "PyYAML>=6.0.2",
+    "PyJWT[crypto]>=2.9.0",
+    "cryptography>=43.0.0",
+    "python-multipart>=0.0.20",
+    "argon2-cffi>=23.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.7.0",
+    "bandit>=1.7.10",
+    "mypy>=1.13.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "C4", "SIM", "RUF"]
+ignore = ["S101", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S"]
+
+[tool.bandit]
+exclude_dirs = ["scripts", ".venv", "tests"]
+skips = ["B101", "B104"]  # asserts in dev, 0.0.0.0 bind inside container
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+namespaces = true
