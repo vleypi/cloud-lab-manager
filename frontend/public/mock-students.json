@@ -1,0 +1,42 @@
+[
+  {
+    "external_id": "ivanov.ii@hackathon.local",
+    "name": "Иванов И. И.",
+    "full_name": "Иванов Иван Иванович",
+    "group": "ЭФБО-09-24",
+    "initials": "ИИ",
+    "gradient": "linear-gradient(135deg, #6fa8dc, #3d85c6)"
+  },
+  {
+    "external_id": "petrov.pp@hackathon.local",
+    "name": "Петров П. П.",
+    "full_name": "Петров Пётр Петрович",
+    "group": "ЭФБО-09-24",
+    "initials": "ПП",
+    "gradient": "linear-gradient(135deg, #93c47d, #6aa84f)"
+  },
+  {
+    "external_id": "sidorova.ak@hackathon.local",
+    "name": "Сидорова А. К.",
+    "full_name": "Сидорова Анна Константиновна",
+    "group": "ЭФБО-09-24",
+    "initials": "СА",
+    "gradient": "linear-gradient(135deg, #d5a6bd, #a64d79)"
+  },
+  {
+    "external_id": "kuznetsov.ma@hackathon.local",
+    "name": "Кузнецов М. А.",
+    "full_name": "Кузнецов Максим Андреевич",
+    "group": "ЭФБО-09-24",
+    "initials": "КМ",
+    "gradient": "linear-gradient(135deg, #ffd966, #f1c232)"
+  },
+  {
+    "external_id": "mikhailova.ds@hackathon.local",
+    "name": "Михайлова Д. С.",
+    "full_name": "Михайлова Дарья Сергеевна",
+    "group": "ЭФБО-09-24",
+    "initials": "МД",
+    "gradient": "linear-gradient(135deg, #b4a7d6, #674ea7)"
+  }
+]
