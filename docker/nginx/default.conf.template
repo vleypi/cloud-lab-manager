@@ -16,7 +16,7 @@ server {
 
     # CSP frame-ancestors из env LTI_EMBED_FRAME_ANCESTORS подставится envsubst
     # X-Frame-Options НЕ ставим он перебивает современный CSP
-    add_header Content-Security-Policy "frame-ancestors ${LTI_EMBED_FRAME_ANCESTORS}" always;
+    add_header Content-Security-Policy "frame-ancestors 'self' ${LTI_EMBED_FRAME_ANCESTORS_EXTRA}" always;
 
     location /api/ {
         set $api_upstream "api:8000";

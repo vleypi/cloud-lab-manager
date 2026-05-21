@@ -1,4 +1,3 @@
-
 set -euo pipefail
 
 cmd="${1:-api}"
@@ -73,6 +72,7 @@ case "${cmd}" in
         exec celery -A app.celery_app:celery_app worker \
             --loglevel="${CELERY_LOG_LEVEL:-INFO}" \
             --queues="${CELERY_QUEUES:-orchestrator}" \
+            --pool="${CELERY_POOL:-threads}" \
             --concurrency="${CELERY_CONCURRENCY:-4}"
         ;;
     beat)

@@ -107,6 +107,15 @@ class OpenStackProvider(CloudProvider):
             auth_kwargs["project_name"] = settings.os_username
             auth_kwargs["project_domain_name"] = settings.os_project_domain_name
 
+        logger.info(
+            "build_connection",
+            auth_url=auth_kwargs["auth_url"],
+            username=auth_kwargs["username"],
+            user_domain_name=auth_kwargs["user_domain_name"],
+            project_id=auth_kwargs.get("project_id"),
+            password_len=len(auth_kwargs["password"]),
+        )
+
         try:
             auth = ks_v3.Password(**auth_kwargs)
             sess = ks_session.Session(
@@ -187,6 +196,11 @@ class OpenStackProvider(CloudProvider):
             quota = await asyncio.to_thread(
                 lambda: conn.compute.get(f"/os-quota-sets/{project_id}/detail").json()
             )
+        except (ks_exc.Unauthorized, ks_exc.Forbidden) as exc:
+            raise CloudProviderError(
+                "KI Keystone rejected the orchestrator credentials",
+                details={"status": getattr(exc, "http_status", 401)},
+            ) from exc
         except _TRANSIENT as exc:
             raise CloudProviderError("Failed to query project quota") from exc
 

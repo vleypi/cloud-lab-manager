@@ -1,7 +1,3 @@
-# Единый .dockerignore — build context = корень репо.
-# Применяется к обоим образам (backend и frontend).
-
-# vcs / IDE
 .git
 .gitignore
 .gitattributes

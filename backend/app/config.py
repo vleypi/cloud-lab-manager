@@ -45,6 +45,7 @@ class Settings(BaseSettings):
 
     credentials_ttl_seconds: int = 48 * 3600
     sweep_interval_seconds: int = 60
+    provision_stall_seconds: int = 900
 
     stand_boot_volume_gb: int = 20
 

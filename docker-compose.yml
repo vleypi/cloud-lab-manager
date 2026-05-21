@@ -125,7 +125,7 @@ services:
     volumes:
       - ./docker/nginx:/etc/nginx/templates:ro
     environment:
-      LTI_EMBED_FRAME_ANCESTORS: ${LTI_EMBED_FRAME_ANCESTORS:-'self'}
+      LTI_EMBED_FRAME_ANCESTORS_EXTRA: ${LTI_EMBED_FRAME_ANCESTORS_EXTRA:-}
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped

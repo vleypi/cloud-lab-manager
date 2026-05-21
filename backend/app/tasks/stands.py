@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.celery_app import celery_app
+from app.config import get_settings
 from app.core.exceptions import CloudProviderError
 from app.db.session import SyncSessionLocal
 from app.core.cloud_init import build_user_data
@@ -45,9 +46,38 @@ def _transition(stand: Stand, to: StandStatus, *, reason: str | None = None) -> 
         stand.status_reason = reason[:1024]
 
 
+class ProvisionStandTask(Task):
+    def on_failure(self, exc, task_id, args, kwargs, einfo) -> None:  # noqa: ANN001
+        raw_id = args[0] if args else kwargs.get("stand_id")
+        if not raw_id:
+            return
+        try:
+            sid = UUID(str(raw_id))
+        except (TypeError, ValueError):
+            logger.warning("provision_on_failure_bad_id", stand_id=str(raw_id))
+            return
+
+        reason = f"Provisioning failed: {exc.__class__.__name__}: {str(exc)[:512]}"
+        with SyncSessionLocal() as session:
+            stand = _load_stand(session, sid)
+            if stand is None:
+                logger.warning("provision_on_failure_missing_stand", stand_id=str(sid))
+                return
+            if stand.status not in (StandStatus.ALLOCATING, StandStatus.DEPLOYING):
+                logger.info(
+                    "provision_on_failure_skipped_terminal",
+                    stand_id=str(sid),
+                    status=stand.status.value,
+                )
+                return
+            project = _load_project(session, stand.pool_project_id)
+            _mark_failed(session, stand, project, reason)
+
+
 @celery_app.task(
     name="stands.provision",
     bind=True,
+    base=ProvisionStandTask,
     autoretry_for=(CloudProviderError, ConnectionError, TimeoutError),
     retry_backoff=True,
     retry_backoff_max=60,
@@ -279,6 +309,9 @@ def destroy_stand(self: Task, stand_id: str) -> dict:
 def sweep_expired(self: Task) -> dict:
     now = _now()
     enqueued: list[str] = []
+    stalled: list[str] = []
+    stall_seconds = max(60, int(get_settings().provision_stall_seconds))
+    stall_cutoff = now - timedelta(seconds=stall_seconds)
     with SyncSessionLocal() as session:
         candidates = session.execute(
             select(Stand)
@@ -293,9 +326,26 @@ def sweep_expired(self: Task) -> dict:
             enqueued.append(str(stand.id))
         session.commit()
 
+        stuck = session.execute(
+            select(Stand)
+            .where(Stand.status.in_((StandStatus.ALLOCATING, StandStatus.DEPLOYING)))
+            .where(Stand.updated_at <= stall_cutoff)
+            .with_for_update(skip_locked=True, of=Stand.__table__)
+        ).scalars().all()
+        for stand in stuck:
+            project = _load_project(session, stand.pool_project_id)
+            reason = (
+                f"Stand stalled in '{stand.status.value}' for more than "
+                f"{stall_seconds}s without progress"
+            )
+            _mark_failed(session, stand, project, reason)
+            stalled.append(str(stand.id))
+
     if enqueued:
         logger.info("sweep_enqueued", count=len(enqueued), stand_ids=enqueued)
-    return {"enqueued": len(enqueued)}
+    if stalled:
+        logger.warning("sweep_stalled_failed", count=len(stalled), stand_ids=stalled)
+    return {"enqueued": len(enqueued), "stalled": len(stalled)}
 
 
 _ = Retry
