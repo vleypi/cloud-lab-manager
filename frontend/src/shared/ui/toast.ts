@@ -1,0 +1,16 @@
+import { toast as sonnerToast } from "sonner";
+
+export const toast = {
+  success: (message: string, description?: string) =>
+    sonnerToast.success(message, { description }),
+  error: (message: string, description?: string) =>
+    sonnerToast.error(message, { description }),
+  info: (message: string, description?: string) =>
+    sonnerToast.info(message, { description }),
+  warn: (message: string, description?: string) =>
+    sonnerToast.warning(message, { description }),
+  promise: <T,>(
+    promise: Promise<T>,
+    config: { loading: string; success: string; error: string },
+  ) => sonnerToast.promise(promise, config),
+};
