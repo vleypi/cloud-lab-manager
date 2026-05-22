@@ -14,6 +14,7 @@ import { formatRelative } from "@/shared/utils/format.util";
 import { InspectorPanel } from "@/features/inspector/components/InspectorPanel";
 import { StandActions } from "@/features/stands/components/StandActions";
 import { StandAuditLog } from "@/features/stands/components/StandAuditLog";
+import { StandConsole } from "@/features/stands/components/StandConsole";
 import { StandDetails } from "@/features/stands/components/StandDetails";
 import { StandFsmTimeline } from "@/features/stands/components/StandFsmTimeline";
 import { StandStatusBadge } from "@/features/stands/components/StandStatusBadge";
@@ -123,6 +124,18 @@ export function StandDetailScreen({ mode }: IStandDetailScreenProps) {
           <StandActions stand={stand} mode={mode} />
         </Card>
       </div>
+
+      {stand.status === "ready" && (
+        <div className="grid gap-6 mb-6">
+          <Card>
+            <CardHeader
+              title="Рабочий стол стенда"
+              description="Прямое подключение к ВМ через guacd"
+            />
+            <StandConsole stand={stand} />
+          </Card>
+        </div>
+      )}
 
       <div className="grid gap-6 mb-6">
         <StandDetails stand={stand} />

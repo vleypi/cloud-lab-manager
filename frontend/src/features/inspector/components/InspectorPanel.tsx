@@ -22,9 +22,17 @@ interface IInspectorPanelProps {
   isStandReady: boolean;
 
   readOnly?: boolean;
+  // когда задан, селект шаблона скрывается и используется этот шаблон.
+  // подбор: точное совпадение по name → startsWith → первый доступный
+  lockedTemplate?: string | null;
 }
 
-export function InspectorPanel({ standId, isStandReady, readOnly = false }: IInspectorPanelProps) {
+export function InspectorPanel({
+  standId,
+  isStandReady,
+  readOnly = false,
+  lockedTemplate = null,
+}: IInspectorPanelProps) {
   const [templateName, setTemplateName] = useState("");
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 
@@ -39,10 +47,19 @@ export function InspectorPanel({ standId, isStandReady, readOnly = false }: IIns
   }, [runs, selectedRunId]);
 
   useEffect(() => {
-    if (!templateName && templates && templates.length > 0) {
-      setTemplateName(templates[0].name);
+    if (templateName || !templates || templates.length === 0) return;
+    if (lockedTemplate) {
+      const exact = templates.find((t) => t.name === lockedTemplate);
+      const prefix = exact ?? templates.find((t) => t.name.startsWith(lockedTemplate));
+      setTemplateName((prefix ?? templates[0]).name);
+      return;
     }
-  }, [templates, templateName]);
+    setTemplateName(templates[0].name);
+  }, [templates, templateName, lockedTemplate]);
+
+  const lockedTemplateMeta = lockedTemplate
+    ? templates?.find((t) => t.name === templateName) ?? null
+    : null;
 
   const handleSchedule = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -64,7 +81,7 @@ export function InspectorPanel({ standId, isStandReady, readOnly = false }: IIns
         }
       />
 
-      {!readOnly && (
+      {!readOnly && !lockedTemplate && (
         <form
           onSubmit={handleSchedule}
           className="flex flex-col sm:flex-row gap-3 mb-5 sm:items-end"
@@ -81,6 +98,29 @@ export function InspectorPanel({ standId, isStandReady, readOnly = false }: IIns
               }))}
               hint={isStandReady ? undefined : "Доступно только когда стенд в статусе READY"}
             />
+          </div>
+          <Button
+            type="submit"
+            iconLeft={<PlayIcon size={14} />}
+            isLoading={isPending}
+            disabled={!isStandReady || !templateName}
+          >
+            Запустить проверку
+          </Button>
+        </form>
+      )}
+
+      {!readOnly && lockedTemplate && (
+        <form onSubmit={handleSchedule} className="flex items-center justify-between gap-3 mb-5">
+          <div className="text-xs text-gray-500 min-w-0">
+            {lockedTemplateMeta ? (
+              <>
+                Шаблон: <span className="font-mono text-ki-dark">{lockedTemplateMeta.name}</span>
+                <span className="text-gray-400"> — {lockedTemplateMeta.display_name} ({lockedTemplateMeta.checks_count} ш.)</span>
+              </>
+            ) : (
+              "Загрузка шаблона..."
+            )}
           </div>
           <Button
             type="submit"

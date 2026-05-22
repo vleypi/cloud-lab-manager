@@ -7,7 +7,7 @@ import { ErrorBox } from "@/shared/ui/ErrorBox";
 import { Input } from "@/shared/ui/Input";
 import { SkeletonLine } from "@/shared/ui/Skeleton";
 import { useMe } from "@/shared/identity/useMe";
-import { formatDuration, formatPercent, secondsToHours } from "@/shared/utils/format.util";
+import { secondsToHours } from "@/shared/utils/format.util";
 
 import { useLifecycleSettings } from "@/features/admin/hooks/useLifecycleSettings";
 import { usePatchLifecycleSettings } from "@/features/admin/hooks/usePatchLifecycleSettings";
@@ -19,7 +19,6 @@ interface IFormState {
 }
 
 const HOUR = 3600;
-const MAX_HOURS = 720;
 
 export function LifecycleSettingsForm() {
   const { data, isLoading, error } = useLifecycleSettings();
@@ -61,14 +60,13 @@ export function LifecycleSettingsForm() {
         {Array.from({ length: 3 }).map((_, i) => (
           <div
             key={i}
-            className="px-5 py-4 grid grid-cols-[1fr_auto_auto] gap-5 items-center"
+            className="px-5 py-4 grid grid-cols-[1fr_136px] gap-x-3 items-center"
           >
             <div className="space-y-2 min-w-0">
               <SkeletonLine width="w-32" height="h-3.5" />
               <SkeletonLine width="w-3/4" height="h-3" />
             </div>
-            <SkeletonLine width="w-16" height="h-4" />
-            <SkeletonLine width="w-24" height="h-9" className="rounded-lg" />
+            <SkeletonLine width="w-24" height="h-10" className="rounded-xl ml-auto mr-5" />
           </div>
         ))}
       </div>
@@ -108,11 +106,7 @@ export function LifecycleSettingsForm() {
         <SettingRow
           title="TTL стенда"
           description="Через сколько часов после старта стенд автоматически удаляется"
-          currentLabel="Сейчас"
-          currentValue={formatDuration(data.stand_default_ttl_seconds)}
           unit="ч"
-          max={MAX_HOURS}
-          step={0.5}
           value={form.defaultTtlHours}
           onChange={(value) => setForm((prev) => ({ ...prev, defaultTtlHours: value }))}
         />
@@ -120,11 +114,7 @@ export function LifecycleSettingsForm() {
         <SettingRow
           title="TTL заморозки"
           description="Сколько часов хранить замороженный стенд для разбора преподавателем"
-          currentLabel="Сейчас"
-          currentValue={formatDuration(data.stand_freeze_ttl_seconds)}
           unit="ч"
-          max={MAX_HOURS}
-          step={0.5}
           value={form.freezeTtlHours}
           onChange={(value) => setForm((prev) => ({ ...prev, freezeTtlHours: value }))}
         />
@@ -132,12 +122,7 @@ export function LifecycleSettingsForm() {
         <SettingRow
           title="Capacity guard"
           description="Порог утилизации кластера КИ, выше которого запуск новых стендов блокируется"
-          currentLabel="Текущий"
-          currentValue={formatPercent(data.capacity_threshold_percent)}
           unit="%"
-          min={1}
-          max={99}
-          step={1}
           value={form.capacityThreshold}
           onChange={(value) => setForm((prev) => ({ ...prev, capacityThreshold: value }))}
         />
@@ -169,12 +154,7 @@ export function LifecycleSettingsForm() {
 interface ISettingRowProps {
   title: string;
   description: string;
-  currentLabel: string;
-  currentValue: string;
   unit: string;
-  min?: number;
-  max: number;
-  step: number;
   value: string;
   onChange: (value: string) => void;
 }
@@ -182,41 +162,28 @@ interface ISettingRowProps {
 function SettingRow({
   title,
   description,
-  currentLabel,
-  currentValue,
   unit,
-  min = 0.5,
-  max,
-  step,
   value,
   onChange,
 }: ISettingRowProps) {
   return (
-    <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3 sm:gap-5 items-center">
+    <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-[1fr_136px] gap-3 sm:gap-x-3 items-center">
       <div className="min-w-0">
         <h3 className="text-sm font-semibold text-ki-dark leading-tight">{title}</h3>
         <p className="mt-1 text-xs text-gray-500 leading-relaxed">{description}</p>
       </div>
 
-      <div className="hidden sm:inline-flex items-baseline gap-1.5 whitespace-nowrap">
-        <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium">
-          {currentLabel}
-        </span>
-        <span className="text-sm font-semibold text-ki-dark">{currentValue}</span>
-      </div>
-
-      <div className="inline-flex items-center gap-2">
+      <div className="flex items-center gap-2 justify-end">
         <Input
-          type="number"
-          min={min}
-          max={max}
-          step={step}
+          type="text"
+          inputMode="decimal"
           value={value}
           onChange={(event) => onChange(event.target.value)}
           fullWidth={false}
-          className="w-24 text-sm font-semibold text-center"
+          style={{ width: "96px" }}
+          className="text-sm font-semibold text-center tabular-nums"
         />
-        <span className="text-xs text-gray-500 w-4">{unit}</span>
+        <span className="text-xs text-gray-500 w-3 text-left">{unit}</span>
       </div>
     </div>
   );

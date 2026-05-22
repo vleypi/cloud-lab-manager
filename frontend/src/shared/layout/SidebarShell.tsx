@@ -40,7 +40,7 @@ export function SidebarShell({ children }: ISidebarShellProps) {
             </button>
           </div>
         )}
-        <div className="h-full overflow-y-auto p-4 flex flex-col">{children}</div>
+        <div className="h-full overflow-y-auto overflow-x-hidden p-4 flex flex-col">{children}</div>
       </aside>
     </>
   );

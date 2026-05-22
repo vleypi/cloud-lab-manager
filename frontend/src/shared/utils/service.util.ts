@@ -4,6 +4,7 @@ export interface IApiErrorData {
   code?: string;
   message?: string;
   details?: Record<string, unknown>;
+  detail?: string | Record<string, unknown>;
 }
 
 export class ApiError extends Error {
@@ -25,8 +26,13 @@ export function handleServiceError(error: unknown): ApiError {
   if (error instanceof AxiosError) {
     const responseData = error.response?.data as IApiErrorData | undefined;
     const statusCode = error.response?.status ?? 0;
+    const detailText =
+      typeof responseData?.detail === "string" ? responseData.detail : undefined;
     const message =
-      responseData?.message ?? error.message ?? "Произошла ошибка при запросе к серверу";
+      responseData?.message ??
+      detailText ??
+      error.message ??
+      "Произошла ошибка при запросе к серверу";
     return new ApiError(message, statusCode, responseData ?? {});
   }
 

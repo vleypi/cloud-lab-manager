@@ -1,16 +1,20 @@
 "use client";
 
+import { useMemo, useState } from "react";
+
 import { Badge } from "@/shared/ui/Badge";
 import { Button } from "@/shared/ui/Button";
 import { ConfirmDeleteModal } from "@/shared/ui/ConfirmDeleteModal";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { ErrorBox } from "@/shared/ui/ErrorBox";
 import {
+  AlertTriangleIcon,
   LinkIcon,
   PlusIcon,
   SettingsIcon,
   TrashIcon,
 } from "@/shared/icons/index-icons";
+import { SearchBox } from "@/shared/ui/SearchBox";
 import { SkeletonTable } from "@/shared/ui/Skeleton";
 import { cn } from "@/shared/utils/cn";
 import { useModal } from "@/shared/modal/hooks/useModal";
@@ -19,22 +23,51 @@ import { useCourseMappings } from "@/features/mappings/hooks/useCourseMappings";
 import { useDeleteMapping } from "@/features/mappings/hooks/useDeleteMapping";
 import { ICourseMapping } from "@/features/mappings/interfaces/mappings.interfaces";
 import { UpsertMappingModal } from "@/features/mappings/components/UpsertMappingModal";
+import { usePoolProjects } from "@/features/pool/hooks/usePoolProjects";
 
 export function CourseMappingsTable() {
   const { data, isLoading, error } = useCourseMappings();
+  const { data: poolProjects } = usePoolProjects();
   const { mutate: deleteMapping, isPending: isDeleting, variables: deletingId } = useDeleteMapping();
   const { openModal, closeModal } = useModal();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // домены, в которых есть хоть один проект пула — остальные ki_domain_name в маппингах «висят в воздухе»
+  const domainsWithProjects = useMemo(
+    () => new Set((poolProjects ?? []).map((p) => p.ki_domain_name)),
+    [poolProjects],
+  );
+
+  const filtered = useMemo(() => {
+    if (!data) return [];
+    if (!searchQuery.trim()) return data;
+    const query = searchQuery.trim().toLowerCase();
+    return data.filter((mapping) => {
+      const fields = [
+        mapping.course_code,
+        mapping.lab_code,
+        mapping.lti_context_id,
+        mapping.resource_link_id,
+        mapping.ki_domain_name,
+        mapping.inspector_template,
+        mapping.title,
+      ];
+      return fields.some((value) => value?.toLowerCase().includes(query));
+    });
+  }, [data, searchQuery]);
 
   const openCreate = () =>
     openModal("Новый маппинг курса", <UpsertMappingModal onClose={closeModal} />, {
-      size: "lg",
+      size: "xl",
+      scrollInner: true,
+      noPadding: true,
     });
 
   const openEdit = (mapping: ICourseMapping) =>
     openModal(
       "Редактировать маппинг",
       <UpsertMappingModal initialMapping={mapping} onClose={closeModal} />,
-      { size: "lg" },
+      { size: "xl", scrollInner: true, noPadding: true },
     );
 
   const openDelete = (mapping: ICourseMapping) =>
@@ -61,7 +94,13 @@ export function CourseMappingsTable() {
 
   return (
     <div>
-      <div className="flex justify-end mb-4">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <SearchBox
+          value={searchQuery}
+          onSearch={setSearchQuery}
+          placeholder="Поиск по курсу, лабе, домену, context..."
+          className="w-72"
+        />
         <Button iconLeft={<PlusIcon size={16} />} onClick={openCreate}>
           Новый маппинг
         </Button>
@@ -90,6 +129,12 @@ export function CourseMappingsTable() {
             </Button>
           }
         />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={<LinkIcon size={20} />}
+          title="По запросу ничего не найдено"
+          description="Попробуйте изменить поисковый запрос"
+        />
       ) : (
         <div className="rounded-2xl border border-gray-100 bg-white overflow-hidden">
 
@@ -102,12 +147,12 @@ export function CourseMappingsTable() {
             <div className="col-span-1 text-right truncate">Действия</div>
           </div>
 
-          {data.map((mapping, idx) => (
+          {filtered.map((mapping, idx) => (
             <div
               key={mapping.id}
               className={cn(
                 "grid grid-cols-12 gap-4 px-4 py-3.5 items-center hover:bg-gray-50 transition group",
-                idx === data.length - 1 ? "" : "border-b border-gray-100",
+                idx === filtered.length - 1 ? "" : "border-b border-gray-100",
               )}
             >
               <div className="col-span-2 min-w-0">
@@ -129,8 +174,20 @@ export function CourseMappingsTable() {
                 )}
               </div>
 
-              <div className="col-span-2 text-sm text-gray-700 truncate">
-                {mapping.ki_domain_name}
+              <div className="col-span-2 min-w-0">
+                {domainsWithProjects.has(mapping.ki_domain_name) ? (
+                  <span className="text-sm text-gray-700 truncate block">
+                    {mapping.ki_domain_name}
+                  </span>
+                ) : (
+                  <span
+                    className="flex items-center gap-1.5 text-sm text-red-600 min-w-0"
+                    title="В пуле нет проектов в этом домене — студенты получат pool_exhausted"
+                  >
+                    <AlertTriangleIcon size={14} className="flex-shrink-0" />
+                    <span className="truncate min-w-0">{mapping.ki_domain_name || "—"}</span>
+                  </span>
+                )}
               </div>
 
               <div className="col-span-2 min-w-0">

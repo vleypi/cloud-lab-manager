@@ -4,6 +4,7 @@ export { StandDetails } from "./components/StandDetails";
 export { StandActions } from "./components/StandActions";
 export { CredentialsModal } from "./components/CredentialsModal";
 export { CredentialsView } from "./components/CredentialsView";
+export { StandConsole } from "./components/StandConsole";
 export { StandDetailScreen } from "./components/StandDetailScreen";
 export { FreezeModal } from "./components/FreezeModal";
 export { ExtendModal } from "./components/ExtendModal";

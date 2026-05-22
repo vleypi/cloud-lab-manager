@@ -1,6 +1,8 @@
 import { axiosInstance } from "@/shared/config/axios.config";
 
 import {
+  IConsoleToken,
+  IConsoleUrl,
   IExtendPayload,
   IFreezePayload,
   IReportIncidentPayload,
@@ -67,6 +69,20 @@ class StandsService {
     const response = await axiosInstance.post<IStand>(
       `/stands/${standId}/report-incident`,
       payload,
+    );
+    return response.data;
+  }
+
+  async issueConsoleToken(standId: string): Promise<IConsoleToken> {
+    const response = await axiosInstance.post<IConsoleToken>(
+      `/stands/${standId}/console/token`,
+    );
+    return response.data;
+  }
+
+  async getConsoleUrl(standId: string): Promise<IConsoleUrl> {
+    const response = await axiosInstance.get<IConsoleUrl>(
+      `/stands/${standId}/console-url`,
     );
     return response.data;
   }

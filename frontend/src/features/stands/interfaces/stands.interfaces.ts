@@ -72,6 +72,21 @@ export interface IStandCredentials {
   fingerprint: string;
   ssh_public_key: string;
   ssh_private_key: string;
+  console_password?: string | null;
+}
+
+export type TConsoleProtocol = "ssh" | "vnc" | "rdp";
+
+export interface IConsoleToken {
+  token: string;
+  expires_in: number;
+  ws_url: string;
+}
+
+export interface IConsoleUrl {
+  url: string;
+  type: string;
+  rewrite: boolean;
 }
 
 export interface IFreezePayload {

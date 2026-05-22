@@ -16,11 +16,30 @@ import { TStandStatus } from "@/features/stands/interfaces/stands.interfaces";
 interface IStandFsmTimelineProps {
   status: TStandStatus;
   statusReason?: string | null;
+  // когда true и статус ready — рендерим компактный badge с раскрывашкой,
+  // вместо полной шкалы. используется в student-вьюхе чтобы не шуметь
+  compactWhenReady?: boolean;
 }
 
 type TStepState = "done" | "current" | "pending" | "failed";
 
-export function StandFsmTimeline({ status, statusReason }: IStandFsmTimelineProps) {
+export function StandFsmTimeline({ status, statusReason, compactWhenReady = false }: IStandFsmTimelineProps) {
+
+  if (compactWhenReady && status === "ready") {
+    return (
+      <details className="group">
+        <summary className="flex items-center gap-2 cursor-pointer list-none py-2">
+          <CheckCircleIcon size={18} className="text-emerald-500 flex-shrink-0" />
+          <span className="text-sm font-medium text-ki-dark">Стенд готов, можно подключаться</span>
+          <span className="ml-auto text-xs text-gray-400 group-open:hidden">показать этапы</span>
+          <span className="ml-auto text-xs text-gray-400 hidden group-open:inline">скрыть</span>
+        </summary>
+        <div className="pt-3">
+          <StandFsmTimeline status={status} statusReason={statusReason} />
+        </div>
+      </details>
+    );
+  }
 
   if (status === "destroyed") {
     return (

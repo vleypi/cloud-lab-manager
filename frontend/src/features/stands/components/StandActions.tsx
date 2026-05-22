@@ -7,7 +7,6 @@ import { ConfirmDeleteModal } from "@/shared/ui/ConfirmDeleteModal";
 import {
   AlertTriangleIcon,
   ClockIcon,
-  KeyIcon,
   LockIcon,
   TrashIcon,
   UnlockIcon,
@@ -22,7 +21,6 @@ import {
   canFreeze,
   canUnfreeze,
 } from "@/features/stands/constants/stands.constants";
-import { CredentialsModal } from "@/features/stands/components/CredentialsModal";
 import { ExtendModal } from "@/features/stands/components/ExtendModal";
 import { FreezeModal } from "@/features/stands/components/FreezeModal";
 import { ReportIncidentModal } from "@/features/stands/components/ReportIncidentModal";
@@ -45,13 +43,6 @@ export function StandActions({ stand, mode = "student" }: IStandActionsProps) {
 
   const actorId = user?.externalId;
 
-  const openCredentials = () =>
-    openModal(
-      "SSH-доступ к стенду",
-      <CredentialsModal stand={stand} onClose={closeModal} />,
-      { size: "lg" },
-    );
-
   const openReportIncident = () =>
     openModal(
       "Сообщить о проблеме",
@@ -66,14 +57,16 @@ export function StandActions({ stand, mode = "student" }: IStandActionsProps) {
     return (
       <div className="space-y-2">
         {stand.status === "ready" && (
-          <Button
-            onClick={openCredentials}
-            variant="secondary"
-            iconLeft={<KeyIcon size={16} />}
-            fullWidth
+          <a
+            href={`/stands/${stand.id}/console`}
+            target="_blank"
+            rel="noreferrer"
+            className="block"
           >
-            Получить SSH-ключ
-          </Button>
+            <Button variant="secondary" fullWidth>
+              Открыть консоль в полном окне
+            </Button>
+          </a>
         )}
 
         {stand.status === "ready" && (
