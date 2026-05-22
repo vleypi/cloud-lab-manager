@@ -88,9 +88,7 @@ class InspectorService:
         return CheckScheduleResult(run=run, task_id=async_result.id)
 
     async def get_run(self, run_id: UUID) -> CheckRun:
-        run = await self._session.scalar(
-            select(CheckRun).where(CheckRun.id == run_id)
-        )
+        run = await self._session.scalar(select(CheckRun).where(CheckRun.id == run_id))
         if run is None:
             raise InspectorRunNotFoundError(
                 "Inspector run not found", details={"run_id": str(run_id)}

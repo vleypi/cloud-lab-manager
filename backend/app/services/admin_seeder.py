@@ -22,9 +22,7 @@ async def seed_super_admin(session: AsyncSession) -> User | None:
     external_id = f"admin:{email}"
     display_name = settings.super_admin_display_name or DEFAULT_ADMIN_DISPLAY_NAME
 
-    user = await session.scalar(
-        select(User).where(User.external_id == external_id)
-    )
+    user = await session.scalar(select(User).where(User.external_id == external_id))
 
     if user is None:
         user = User(

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 import structlog
@@ -30,15 +30,11 @@ class AuthService:
         return await self._session.get(User, user_id)
 
     async def get_by_external_id(self, external_id: str) -> User | None:
-        result = await self._session.execute(
-            select(User).where(User.external_id == external_id)
-        )
+        result = await self._session.execute(select(User).where(User.external_id == external_id))
         return result.scalar_one_or_none()
 
     async def get_by_email(self, email: str) -> User | None:
-        result = await self._session.execute(
-            select(User).where(User.email == email.lower())
-        )
+        result = await self._session.execute(select(User).where(User.email == email.lower()))
         return result.scalar_one_or_none()
 
     async def admin_login(self, *, email: str, password: str) -> User:
@@ -83,6 +79,6 @@ class AuthService:
         return user
 
     async def _touch_last_login(self, user: User) -> None:
-        user.last_login_at = datetime.now(timezone.utc)
+        user.last_login_at = datetime.now(UTC)
         await self._session.commit()
         await self._session.refresh(user)

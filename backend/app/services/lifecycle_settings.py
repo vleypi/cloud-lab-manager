@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.models.lifecycle_audit import LifecycleSettingChange
 from app.models.runtime_settings import (
     KEY_CAPACITY_THRESHOLD,
     KEY_DEFAULT_TTL,
@@ -77,11 +78,24 @@ class LifecycleSettings:
         stored = dict(result.all())
         return {**self._defaults, **stored}
 
-    async def set_value(
-        self, key: str, value: str, *, updated_by: str | None = None
-    ) -> str:
+    async def set_value(self, key: str, value: str, *, updated_by: str | None = None) -> str:
         if key not in self._defaults:
             raise KeyError(f"Unknown runtime setting: {key}")
+
+        previous = await self._session.scalar(
+            select(RuntimeSetting.value).where(RuntimeSetting.key == key)
+        )
+        previous_value = previous if previous is not None else self._defaults.get(key)
+
+        if previous_value == value:
+            invalidate_cache(key)
+            logger.info(
+                "runtime_setting_no_change",
+                key=key,
+                value=value,
+                updated_by=updated_by,
+            )
+            return value
 
         stmt = (
             pg_insert(RuntimeSetting)
@@ -92,9 +106,23 @@ class LifecycleSettings:
             )
         )
         await self._session.execute(stmt)
+        self._session.add(
+            LifecycleSettingChange(
+                key=key,
+                old_value=previous_value,
+                new_value=value,
+                updated_by=updated_by,
+            )
+        )
         await self._session.commit()
         invalidate_cache(key)
-        logger.info("runtime_setting_updated", key=key, value=value, updated_by=updated_by)
+        logger.info(
+            "runtime_setting_updated",
+            key=key,
+            old_value=previous_value,
+            new_value=value,
+            updated_by=updated_by,
+        )
         return value
 
 
@@ -107,9 +135,7 @@ class SyncLifecycleSettings:
         cached = _cache_get(key)
         if cached is not None:
             return cached
-        stored = self._session.scalar(
-            select(RuntimeSetting.value).where(RuntimeSetting.key == key)
-        )
+        stored = self._session.scalar(select(RuntimeSetting.value).where(RuntimeSetting.key == key))
         value = stored if stored is not None else self._defaults[key]
         _cache_put(key, value)
         return value

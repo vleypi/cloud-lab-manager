@@ -1,8 +1,8 @@
 import json
 from dataclasses import asdict, dataclass, fields
 
-import redis.asyncio as redis_async
 import redis as redis_sync
+import redis.asyncio as redis_async
 
 from app.config import get_settings
 

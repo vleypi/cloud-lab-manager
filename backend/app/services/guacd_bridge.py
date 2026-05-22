@@ -1,5 +1,5 @@
 import asyncio
-from typing import Iterable
+from collections.abc import Iterable
 
 import structlog
 from fastapi import WebSocket
@@ -150,7 +150,7 @@ class GuacdBridge:
                 asyncio.open_connection(host, port),
                 timeout=10,
             )
-        except (OSError, asyncio.TimeoutError) as exc:
+        except (TimeoutError, OSError) as exc:
             raise GuacdConnectError(f"cannot connect to guacd {host}:{port}: {exc}") from exc
 
     async def _close_guacd(self) -> None:

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import structlog
@@ -29,7 +29,7 @@ class LifecycleService:
     async def _sync_credentials_ttl(self, stand_id: UUID, ttl_seconds: int) -> None:
         try:
             await self._credentials.refresh_ttl(str(stand_id), ttl_seconds)
-        except Exception as exc:  
+        except Exception as exc:
             logger.warning(
                 "credentials_ttl_refresh_failed",
                 stand_id=str(stand_id),
@@ -57,7 +57,7 @@ class LifecycleService:
             )
 
         freeze_ttl = await self._settings.get_int(KEY_FREEZE_TTL)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         assert_transition(stand.status, StandStatus.FROZEN)
         stand.status = StandStatus.FROZEN
@@ -94,7 +94,7 @@ class LifecycleService:
             )
 
         freeze_ttl = await self._settings.get_int(KEY_FREEZE_TTL)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         assert_transition(stand.status, StandStatus.FROZEN)
         stand.status = StandStatus.FROZEN
@@ -134,7 +134,7 @@ class LifecycleService:
             )
 
         ttl = new_ttl_seconds or await self._settings.get_int(KEY_DEFAULT_TTL)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         assert_transition(stand.status, StandStatus.READY)
         stand.status = StandStatus.READY
         stand.frozen_at = None
@@ -144,7 +144,12 @@ class LifecycleService:
             **(stand.extra or {}),
             "unfrozen_by": requested_by,
         }
-        for key in ("incident_reported", "incident_reported_by", "incident_reported_at", "incident_description"):
+        for key in (
+            "incident_reported",
+            "incident_reported_by",
+            "incident_reported_at",
+            "incident_description",
+        ):
             new_extra.pop(key, None)
         stand.extra = new_extra
         await self._session.commit()
@@ -175,7 +180,7 @@ class LifecycleService:
                 "Only active stands can be extended",
                 details={"stand_id": str(stand_id), "status": stand.status.value},
             )
-        stand.expires_at = datetime.now(timezone.utc) + timedelta(seconds=new_ttl_seconds)
+        stand.expires_at = datetime.now(UTC) + timedelta(seconds=new_ttl_seconds)
         stand.extra = {
             **(stand.extra or {}),
             "extended_by": requested_by,
