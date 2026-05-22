@@ -27,12 +27,10 @@ async def run_template(template: CheckTemplate, *, host: str) -> RunReport:
                 )
             )
         return report
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception("inspector_connect_unexpected", host=host)
         for spec in template.checks:
-            report.outcomes.append(
-                (spec, CheckOutcome(status="error", message=str(exc)))
-            )
+            report.outcomes.append((spec, CheckOutcome(status="error", message=str(exc))))
         return report
 
     try:
@@ -41,7 +39,7 @@ async def run_template(template: CheckTemplate, *, host: str) -> RunReport:
                 outcome = await handler_for(spec.kind)(spec, session)
             except KeyError as exc:
                 outcome = CheckOutcome(status="error", message=str(exc))
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.exception(
                     "inspector_check_unexpected",
                     check=spec.name,

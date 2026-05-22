@@ -10,6 +10,46 @@ class CheckKind(str, enum.Enum):
     FILE_CONTAINS = "file_contains"
     COMMAND_EXIT_ZERO = "command_exit_zero"
     COMMAND_OUTPUT_MATCHES = "command_output_matches"
+    OS_RELEASE = "os_release"
+    USER_EXISTS = "user_exists"
+    PROCESS_RUNNING = "process_running"
+    HTTP_ENDPOINT = "http_endpoint"
+    DNS_RESOLVES = "dns_resolves"
+    COMMAND_OUTPUT_COMPARE = "command_output_compare"
+
+
+class CheckSeverity(str, enum.Enum):
+    CRITICAL = "critical"
+    WARNING = "warning"
+    INFO = "info"
+
+
+class CheckSection(str, enum.Enum):
+    OS = "os"
+    SOFTWARE = "software"
+    NETWORK = "network"
+    OTHER = "other"
+
+
+_KIND_DEFAULT_SECTION: dict[CheckKind, CheckSection] = {
+    CheckKind.PACKAGE_INSTALLED: CheckSection.SOFTWARE,
+    CheckKind.SYSTEMD_ACTIVE: CheckSection.SOFTWARE,
+    CheckKind.PORT_LISTENING: CheckSection.NETWORK,
+    CheckKind.FILE_EXISTS: CheckSection.OS,
+    CheckKind.FILE_CONTAINS: CheckSection.OS,
+    CheckKind.COMMAND_EXIT_ZERO: CheckSection.OTHER,
+    CheckKind.COMMAND_OUTPUT_MATCHES: CheckSection.OTHER,
+    CheckKind.OS_RELEASE: CheckSection.OS,
+    CheckKind.USER_EXISTS: CheckSection.OS,
+    CheckKind.PROCESS_RUNNING: CheckSection.OS,
+    CheckKind.HTTP_ENDPOINT: CheckSection.NETWORK,
+    CheckKind.DNS_RESOLVES: CheckSection.NETWORK,
+    CheckKind.COMMAND_OUTPUT_COMPARE: CheckSection.OTHER,
+}
+
+
+def default_section_for(kind: CheckKind) -> CheckSection:
+    return _KIND_DEFAULT_SECTION.get(kind, CheckSection.OTHER)
 
 
 @dataclass(slots=True, frozen=True)
@@ -17,6 +57,8 @@ class CheckSpec:
     name: str
     kind: CheckKind
     params: dict[str, object]
+    section: CheckSection = CheckSection.OTHER
+    severity: CheckSeverity = CheckSeverity.CRITICAL
 
 
 @dataclass(slots=True, frozen=True)
@@ -27,7 +69,6 @@ class CheckTemplate:
     checks: list[CheckSpec]
 
 
-# возможные значения CheckOutcome.status
 CHECK_STATUS_PASSED = "passed"
 CHECK_STATUS_FAILED = "failed"
 CHECK_STATUS_SKIPPED = "skipped"
@@ -70,6 +111,10 @@ class RunReport:
     def overall(self) -> str:
         if self.errored:
             return CHECK_STATUS_ERROR
-        if self.failed:
+        critical_failed = any(
+            o.status == CHECK_STATUS_FAILED and spec.severity == CheckSeverity.CRITICAL
+            for spec, o in self.outcomes
+        )
+        if critical_failed or self.failed:
             return CHECK_STATUS_FAILED
         return CHECK_STATUS_PASSED
