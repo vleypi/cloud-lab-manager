@@ -75,6 +75,7 @@ services:
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
+      network: host
     command: ["api"]
     depends_on:
       db:
@@ -126,6 +127,7 @@ services:
     build:
       context: .
       dockerfile: docker/frontend.Dockerfile
+      network: host
     image: cloud-lab-manager/web:latest
     environment:
       BACKEND_INTERNAL_URL: http://api:8000
