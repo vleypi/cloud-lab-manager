@@ -241,7 +241,9 @@ cloud-lab-manager/
 * `docker compose exec api python` - Python REPL внутри api-контейнера
 * `docker compose exec api python -m scripts.init_db` - подхватить изменения `pool.yaml`
 * `python3 scripts/validate-pool.py` - проверить YAML-схему пула
-* `docker compose exec api ruff check app` - lint backend
-* `docker compose exec api ruff format app` - format backend
-* `docker compose exec api bandit -c pyproject.toml -r app -ll -ii` - SAST
-* `docker compose exec api pytest` - тесты
+
+## Команды разработки
+
+Данные для авторизации:
+* email: admin@cloud-lab-manager.local
+* password: 1111
