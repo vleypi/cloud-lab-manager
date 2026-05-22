@@ -35,6 +35,8 @@ class CheckResultOut(BaseModel):
     exit_code: int | None
     duration_ms: int | None
     spec: dict
+    section: str = "other"
+    severity: str = "critical"
 
     @classmethod
     def from_orm_result(cls, r: CheckResult) -> "CheckResultOut":

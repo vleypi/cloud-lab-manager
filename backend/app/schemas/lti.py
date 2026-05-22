@@ -1,8 +1,9 @@
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.lti import CourseMapping, LtiPlatform
+from app.models.lti import CourseMapping, LtiPlatform, PendingLtiBinding
 
 
 class LtiPlatformIn(BaseModel):
@@ -90,9 +91,31 @@ class MoodleRestLaunchIn(BaseModel):
     user_display_name: str | None = Field(default=None, max_length=256)
     lti_context_id: str = Field(..., min_length=1, max_length=256)
     resource_link_id: str | None = Field(default=None, max_length=256)
+    # опциональные человеческие заголовки для UI ожидающих привязок
+    context_title: str | None = Field(default=None, max_length=512)
+    resource_link_title: str | None = Field(default=None, max_length=512)
 
 
 class MoodleRestLaunchOut(BaseModel):
     stand_id: UUID
     task_id: str
     redirect_url: str
+
+
+class PendingLtiBindingOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    lti_context_id: str
+    resource_link_id: str | None
+    context_title: str | None
+    resource_link_title: str | None
+    last_user_external_id: str | None
+    last_user_display_name: str | None
+    seen_count: int
+    last_seen_at: datetime
+    created_at: datetime
+
+    @classmethod
+    def from_orm(cls, p: PendingLtiBinding) -> "PendingLtiBindingOut":
+        return cls.model_validate(p)

@@ -108,7 +108,7 @@ def _warm_up_auth(sess: ks_session.Session, *, project_id: str | None) -> None:
             project_id=project_id,
             attempts_until_success="<=5",
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning(
             "openstack_auth_warmup_failed",
             project_id=project_id,
@@ -171,9 +171,7 @@ class OpenStackProvider(CloudProvider):
 
     async def _system(self) -> openstack.connection.Connection:
         if self._system_conn is None:
-            self._system_conn = await asyncio.to_thread(
-                self._build_or_get_system_sync
-            )
+            self._system_conn = await asyncio.to_thread(self._build_or_get_system_sync)
         return self._system_conn
 
     def _build_or_get_system_sync(self) -> openstack.connection.Connection:
@@ -246,27 +244,57 @@ class OpenStackProvider(CloudProvider):
 
         qs = quota.get("quota_set", {})
 
-        def _usage(key: str) -> ResourceUsage:
-            entry = qs.get(key) or {}
+        def _usage(entry: dict | None) -> ResourceUsage:
+            entry = entry or {}
             used = float(entry.get("in_use", 0))
             limit = float(entry.get("limit", 0))
             if limit < 0:  # -1 означает "unlimited"
                 limit = max(used * 2, 1.0)
             return ResourceUsage(used=used, total=limit)
 
+        # storage берётся из cinder отдельным вызовом — это другой сервис, его квоты
+        # в compute не отдаются. если cinder недоступен или нет прав — оставляем zero.
+        # приоритет: gigabytes_default (реальный лимит проекта, напр. 500) >
+        # gigabytes (может быть -1 unlimited → удвоим used, что вводит в заблуждение)
+        disk_entry: dict | None = None
+        try:
+            conn_for_disk = await self._system()
+            disk_quota = await asyncio.to_thread(
+                lambda: conn_for_disk.block_storage.get(
+                    f"/os-quota-sets/{project_id}?usage=true"
+                ).json()
+            )
+            qs_disk = disk_quota.get("quota_set") or {}
+            default = qs_disk.get("gigabytes_default") or {}
+            if default and float(default.get("limit", -1)) >= 0:
+                disk_entry = default
+            else:
+                disk_entry = qs_disk.get("gigabytes")
+        except Exception as exc:  # cinder может быть не задеплоен / нет прав / 4xx
+            logger.info("cinder_quota_unavailable", error=str(exc))
+
         return ClusterUtilization(
-            vcpus=_usage("cores"),
-            memory_mb=_usage("ram"),
-            local_gb=_usage("instances"),
+            vcpus=_usage(qs.get("cores")),
+            memory_mb=_usage(qs.get("ram")),
+            local_gb=_usage(disk_entry),
             running_vms=int((qs.get("instances") or {}).get("in_use", 0)),
         )
 
     @_retry()
-    def _fetch_hypervisor_statistics(
-        self, conn: openstack.connection.Connection
-    ) -> dict[str, Any]:
+    def _fetch_hypervisor_statistics(self, conn: openstack.connection.Connection) -> dict[str, Any]:
         try:
-            stats_obj = conn.compute.get("/os-hypervisors/statistics").json()
+            resp = conn.compute.get("/os-hypervisors/statistics")
+            # openstacksdk на 4xx от admin-only endpoint НЕ бросает HttpException,
+            # а возвращает Response с error body. Без явной проверки status .json()
+            # вернёт {"forbidden": ...}, и все stats.get("vcpus", 0) станут нулями —
+            # будет тихий показ «0 из 0» вместо нормального fallback на quota
+            if resp.status_code >= 400:
+                raise os_exc.HttpException(
+                    f"hypervisor statistics returned HTTP {resp.status_code}",
+                    response=resp,
+                    http_status=resp.status_code,
+                )
+            stats_obj = resp.json()
             return stats_obj.get("hypervisor_statistics", stats_obj)
         except AttributeError:
             agg = {
@@ -306,7 +334,7 @@ class OpenStackProvider(CloudProvider):
         )
 
     @_retry()
-    def _create_keypair(self, conn: openstack.connection.Connection, name: str):  # noqa: ANN202
+    def _create_keypair(self, conn: openstack.connection.Connection, name: str):
         return conn.compute.create_keypair(name=name)
 
     async def delete_keypair(self, project_id: str, name: str) -> None:
@@ -363,11 +391,9 @@ class OpenStackProvider(CloudProvider):
         keypair_name: str,
         user_data: str | None,
         metadata: dict[str, str],
-    ):  
+    ):
         encoded_user_data = (
-            base64.b64encode(user_data.encode("utf-8")).decode("ascii")
-            if user_data
-            else None
+            base64.b64encode(user_data.encode("utf-8")).decode("ascii") if user_data else None
         )
 
         volume_size = self._settings.stand_boot_volume_gb
@@ -419,9 +445,7 @@ class OpenStackProvider(CloudProvider):
     async def delete_server(self, project_id: str, server_id: str) -> None:
         conn = await self._project(project_id)
         try:
-            await asyncio.to_thread(
-                conn.compute.delete_server, server_id, ignore_missing=True
-            )
+            await asyncio.to_thread(conn.compute.delete_server, server_id, ignore_missing=True)
         except _TRANSIENT as exc:
             raise CloudProviderError("Failed to delete server") from exc
 
@@ -440,10 +464,18 @@ class OpenStackProvider(CloudProvider):
                 server_id=server_id,
                 external_network_id=external_network_id,
             )
-        except Exception as exc:  # noqa: BLE001
+        except CloudProviderError:
+            # внутри _attach_floating_ip уже есть осмысленные сообщения
+            # («No external network available» / «Server has no Neutron port»), не оборачиваем
+            raise
+        except Exception as exc:
             raise CloudProviderError(
                 "Failed to attach floating IP",
-                details={"server_id": server_id, "error": str(exc)[:200]},
+                details={
+                    "server_id": server_id,
+                    "exc_type": type(exc).__name__,
+                    "error": str(exc)[:500],
+                },
             ) from exc
         return ip
 
@@ -451,16 +483,14 @@ class OpenStackProvider(CloudProvider):
         conn = await self._project(project_id)
         try:
             url = await asyncio.to_thread(self._get_vnc_console_url, conn, server_id)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise CloudProviderError(
                 "Failed to obtain VNC console URL",
                 details={"server_id": server_id, "error": str(exc)[:200]},
             ) from exc
         return url
 
-    def _get_vnc_console_url(
-        self, conn: openstack.connection.Connection, server_id: str
-    ) -> str:
+    def _get_vnc_console_url(self, conn: openstack.connection.Connection, server_id: str) -> str:
         try:
             resp = conn.compute.post(
                 f"/servers/{server_id}/remote-consoles",
@@ -471,7 +501,7 @@ class OpenStackProvider(CloudProvider):
             url = (body.get("remote_console") or {}).get("url")
             if url:
                 return url
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.info("remote_consoles_failed_falling_back", error=str(exc)[:200])
 
         resp = conn.compute.post(
@@ -506,9 +536,7 @@ class OpenStackProvider(CloudProvider):
 
         ports = list(conn.network.ports(device_id=server_id))
         if not ports:
-            raise CloudProviderError(
-                "Server has no Neutron port, floating IP cannot be attached"
-            )
+            raise CloudProviderError("Server has no Neutron port, floating IP cannot be attached")
         port = ports[0]
 
         free_fip = None
@@ -524,11 +552,7 @@ class OpenStackProvider(CloudProvider):
         return fip.floating_ip_address
 
     async def list_networks(self, project_id: str | None = None) -> list[CloudNetwork]:
-        conn = (
-            await self._project(project_id)
-            if project_id is not None
-            else await self._system()
-        )
+        conn = await self._project(project_id) if project_id is not None else await self._system()
         try:
             nets = await asyncio.to_thread(lambda: list(conn.network.networks()))
         except _TRANSIENT as exc:
@@ -590,6 +614,28 @@ class OpenStackProvider(CloudProvider):
             for f in flavors
         ]
 
+    async def get_flavor(self, flavor_id: str) -> CloudFlavor:
+        conn = await self._system()
+        try:
+            f = await asyncio.to_thread(lambda: conn.compute.get_flavor(flavor_id))
+        except os_exc.ResourceNotFound as exc:
+            raise CloudProviderError(
+                f"Flavor not found: {flavor_id}",
+                details={"flavor_id": flavor_id, "status": 404},
+            ) from exc
+        except _TRANSIENT as exc:
+            raise CloudProviderError(
+                "Failed to fetch flavor",
+                details={"flavor_id": flavor_id},
+            ) from exc
+        return CloudFlavor(
+            id=f.id,
+            name=getattr(f, "name", "") or f.id,
+            vcpus=int(getattr(f, "vcpus", 0) or 0),
+            ram_mb=int(getattr(f, "ram", 0) or 0),
+            disk_gb=int(getattr(f, "disk", 0) or 0),
+        )
+
     async def list_domains(self) -> list[KiDomain]:
         conn = await self._system()
         try:
@@ -614,9 +660,7 @@ class OpenStackProvider(CloudProvider):
     ) -> list[KiProject]:
         conn = await self._system()
         try:
-            projects = await asyncio.to_thread(
-                self._fetch_projects, conn, domain_id=domain_id
-            )
+            projects = await asyncio.to_thread(self._fetch_projects, conn, domain_id=domain_id)
         except (ks_exc.Unauthorized, ks_exc.Forbidden) as exc:
             logger.info("list_ki_projects_forbidden", error=str(exc))
             return []
@@ -665,9 +709,7 @@ class OpenStackProvider(CloudProvider):
             kwargs["domain_id"] = domain_id
         return list(conn.identity.projects(**kwargs))
 
-    async def _resolve_network_and_router(
-        self, project_id: str
-    ) -> tuple[str | None, str | None]:
+    async def _resolve_network_and_router(self, project_id: str) -> tuple[str | None, str | None]:
         conn = await self._system()
         try:
             nets = await asyncio.to_thread(

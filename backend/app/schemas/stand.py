@@ -82,9 +82,7 @@ class StandOut(BaseModel):
 class StandLaunchAcceptedOut(BaseModel):
     stand: StandOut
     task_id: str
-    credentials_url: str = Field(
-        ..., description="Одноразовая ссылка на выдачу SSH-приватника"
-    )
+    credentials_url: str = Field(..., description="Одноразовая ссылка на выдачу SSH-приватника")
 
 
 class StandCredentialsOut(BaseModel):

@@ -17,11 +17,19 @@ class UtilizationOut(BaseModel):
     running_vms: int
 
 
+class FlavorRequirementsOut(BaseModel):
+    vcpus: int
+    ram_mb: int
+    disk_gb: int
+
+
 class CapacityDecisionOut(BaseModel):
     allowed: bool
     threshold_percent: float
     reason: str | None = None
+    projected_max_percent: float | None = None
     utilization: UtilizationOut
+    flavor: FlavorRequirementsOut | None = None
 
     @classmethod
     def from_decision(cls, decision: CapacityDecision) -> "CapacityDecisionOut":
