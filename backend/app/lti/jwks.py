@@ -64,9 +64,7 @@ def pick_signing_key(jwks: dict[str, Any], kid: str | None) -> PyJWK:
     for entry in keys:
         if entry.get("kid") == kid:
             return PyJWK(entry)
-    raise LtiSecurityError(
-        "No JWK matched the id_token kid", details={"kid": kid}
-    )
+    raise LtiSecurityError("No JWK matched the id_token kid", details={"kid": kid})
 
 
 @lru_cache(maxsize=1)

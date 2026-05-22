@@ -51,9 +51,7 @@ async def validate_id_token(
     try:
         header = jwt.get_unverified_header(id_token)
     except jwt.PyJWTError as exc:
-        raise LtiSecurityError(
-            "id_token header is malformed", details={"error": str(exc)}
-        ) from exc
+        raise LtiSecurityError("id_token header is malformed", details={"error": str(exc)}) from exc
 
     jwks = await fetch_platform_jwks(platform.jwks_url)
     signing_key = pick_signing_key(jwks, header.get("kid"))

@@ -21,5 +21,6 @@ TEACHER_ROLE_KEYWORDS = (
     "ContentDeveloper",
 )
 
+
 def is_teacher(roles: list[str]) -> bool:
     return any(any(k in r for k in TEACHER_ROLE_KEYWORDS) for r in roles)
