@@ -105,9 +105,7 @@ async def get_stand_credentials(
     if creds is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=(
-                "Credentials are not available — стенд ещё не готов или уже удалён."
-            ),
+            detail=("Credentials are not available — стенд ещё не готов или уже удалён."),
         )
     return StandCredentialsOut(**asdict(creds))
 
@@ -118,9 +116,7 @@ async def freeze_stand(
     stand_id: UUID = Path(...),
     service: LifecycleService = Depends(lifecycle_service),
 ) -> StandOut:
-    stand = await service.freeze(
-        stand_id, reason=payload.reason, requested_by=payload.requested_by
-    )
+    stand = await service.freeze(stand_id, reason=payload.reason, requested_by=payload.requested_by)
     return StandOut.from_orm_stand(stand)
 
 

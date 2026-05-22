@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import db_session, lti_service, require_super_admin, stand_service
 from app.config import get_settings
 from app.lti.jwks import tool_jwks
-from app.models.lti import CourseMapping, LtiPlatform
+from app.models.lti import CourseMapping, LtiPlatform, PendingLtiBinding
 from app.models.user import User
 from app.schemas.lti import (
     CourseMappingIn,
@@ -16,9 +16,11 @@ from app.schemas.lti import (
     LabLaunchIn,
     LtiPlatformIn,
     LtiPlatformOut,
+    PendingLtiBindingOut,
 )
 from app.schemas.stand import StandLaunchAcceptedOut, StandOut
 from app.services.lti_service import LtiService
+from app.services.pending_lti_binding_service import drop_pending_for_mapping
 from app.services.stand_service import StandLaunchRequest, StandService
 
 router = APIRouter(prefix="/lti", tags=["lti"])
@@ -128,9 +130,7 @@ async def register_platform(
 async def list_platforms(
     session: AsyncSession = Depends(db_session),
 ) -> list[LtiPlatformOut]:
-    platforms = await session.scalars(
-        select(LtiPlatform).order_by(LtiPlatform.created_at.desc())
-    )
+    platforms = await session.scalars(select(LtiPlatform).order_by(LtiPlatform.created_at.desc()))
     return [LtiPlatformOut.from_orm_platform(p) for p in platforms.all()]
 
 
@@ -154,6 +154,9 @@ async def upsert_mapping(
     else:
         for k, v in payload.model_dump().items():
             setattr(mapping, k, v)
+    await session.flush()
+    # снимаем ожидавшие привязки на эту же (context_id, link_id) пару — они теперь покрыты
+    await drop_pending_for_mapping(session, mapping)
     await session.commit()
     await session.refresh(mapping)
     return CourseMappingOut.from_orm_mapping(mapping)
@@ -179,6 +182,30 @@ async def delete_mapping(
     mapping = await session.get(CourseMapping, mapping_id)
     if mapping:
         await session.delete(mapping)
+        await session.commit()
+
+
+@router.get("/pending-bindings", response_model=list[PendingLtiBindingOut])
+async def list_pending_bindings(
+    session: AsyncSession = Depends(db_session),
+) -> list[PendingLtiBindingOut]:
+    # LTI-запросы без CourseMapping — препод видит «N студентов уже пробовали зайти»
+    # и одним кликом создаёт маппинг с предзаполненными context_id / resource_link_id
+    rows = await session.scalars(
+        select(PendingLtiBinding).order_by(PendingLtiBinding.last_seen_at.desc())
+    )
+    return [PendingLtiBindingOut.from_orm(r) for r in rows.all()]
+
+
+@router.delete("/pending-bindings/{binding_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def dismiss_pending_binding(
+    binding_id: str = Path(...),
+    session: AsyncSession = Depends(db_session),
+) -> None:
+    # явное «отмахнуться» — если препод понимает, что это спам или больше не актуально
+    binding = await session.get(PendingLtiBinding, binding_id)
+    if binding:
+        await session.delete(binding)
         await session.commit()
 
 

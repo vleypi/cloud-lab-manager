@@ -39,9 +39,7 @@ def rotate_access(response: Response, *, user_id: str, is_super_admin: bool) -> 
     _set_access_cookie(response, user_id=user_id, is_super_admin=is_super_admin)
 
 
-def _set_access_cookie(
-    response: Response, *, user_id: str, is_super_admin: bool
-) -> None:
+def _set_access_cookie(response: Response, *, user_id: str, is_super_admin: bool) -> None:
     settings = get_settings()
     access = issue_access_token(user_id=user_id, is_super_admin=is_super_admin)
     _set_cookie(

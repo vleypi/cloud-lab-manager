@@ -1,11 +1,10 @@
 from uuid import UUID
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-
-import structlog
 
 from app.api.deps import cloud_provider, db_session, pool_manager
 from app.models.project import PoolProject, ProjectStatus
@@ -65,9 +64,7 @@ async def get_inventory(
 async def list_projects(
     session: AsyncSession = Depends(db_session),
 ) -> list[PoolProjectOut]:
-    projects = await session.scalars(
-        select(PoolProject).order_by(PoolProject.created_at.desc())
-    )
+    projects = await session.scalars(select(PoolProject).order_by(PoolProject.created_at.desc()))
     return [PoolProjectOut.from_orm_project(p) for p in projects.all()]
 
 
@@ -115,8 +112,10 @@ async def delete_project(
     # держит ссылку, ALTER не пройдёт. Историю терминальных стендов чистим в той же транзакции,
     # активные — отказываем (как и в init_db.py orphan-cleanup)
     linked_stands = (
-        await session.execute(select(Stand).where(Stand.pool_project_id == project_id))
-    ).scalars().all()
+        (await session.execute(select(Stand).where(Stand.pool_project_id == project_id)))
+        .scalars()
+        .all()
+    )
     active = [s for s in linked_stands if s.status in _ACTIVE_STAND_STATUSES]
     if active:
         raise HTTPException(

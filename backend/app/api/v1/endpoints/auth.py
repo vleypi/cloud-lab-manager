@@ -20,9 +20,7 @@ from app.services.auth_service import AuthService
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-async def _user_from_token(
-    token: str, verifier: Callable, service: AuthService
-) -> User | None:
+async def _user_from_token(token: str, verifier: Callable, service: AuthService) -> User | None:
     try:
         payload = verifier(token)
         return await service.get_by_id(UUID(payload.subject))
@@ -37,9 +35,7 @@ async def admin_login(
     service: AuthService = Depends(auth_service),
 ) -> MeOut:
     user = await service.admin_login(email=payload.email, password=payload.password)
-    issue_session(
-        response, user_id=str(user.id), is_super_admin=user.is_super_admin
-    )
+    issue_session(response, user_id=str(user.id), is_super_admin=user.is_super_admin)
     return MeOut(user=UserOut.model_validate(user))
 
 
@@ -58,9 +54,7 @@ async def dev_login(
         display_name=payload.display_name,
         is_super_admin=payload.is_super_admin,
     )
-    issue_session(
-        response, user_id=str(user.id), is_super_admin=user.is_super_admin
-    )
+    issue_session(response, user_id=str(user.id), is_super_admin=user.is_super_admin)
     return MeOut(user=UserOut.model_validate(user))
 
 
@@ -123,9 +117,7 @@ async def refresh(
     settings = get_settings()
     refresh_token = request.cookies.get(settings.cookie_refresh_name)
     if not refresh_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="missing_refresh"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing_refresh")
     try:
         payload = verify_refresh_token(refresh_token)
     except TokenError as exc:
@@ -135,9 +127,7 @@ async def refresh(
 
     user = await service.get_by_id(UUID(payload.subject))
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="user_gone"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="user_gone")
 
     issue_session(response, user_id=str(user.id), is_super_admin=user.is_super_admin)
     return MeOut(user=UserOut.model_validate(user))

@@ -8,6 +8,7 @@ from app.core.exceptions import OrchestratorError
 from app.models.lti import CourseMapping
 from app.schemas.lti import MoodleRestLaunchIn, MoodleRestLaunchOut
 from app.services.lti_service import CourseNotMappedError
+from app.services.pending_lti_binding_service import record_unmapped_launch
 from app.services.stand_service import StandLaunchRequest, StandService
 
 router = APIRouter(prefix="/integrations/moodle", tags=["integrations"])
@@ -45,11 +46,25 @@ async def rest_launch(
     stands: StandService = Depends(stand_service),
 ) -> MoodleRestLaunchOut:
     settings = get_settings()
-    mapping = await _resolve_mapping(
-        session,
-        context_id=payload.lti_context_id,
-        resource_link_id=payload.resource_link_id,
-    )
+    try:
+        mapping = await _resolve_mapping(
+            session,
+            context_id=payload.lti_context_id,
+            resource_link_id=payload.resource_link_id,
+        )
+    except CourseNotMappedError:
+        # маппинга нет — запоминаем запрос для админки, чтобы препод одним кликом привязал
+        await record_unmapped_launch(
+            session,
+            lti_context_id=payload.lti_context_id,
+            resource_link_id=payload.resource_link_id,
+            context_title=payload.context_title,
+            resource_link_title=payload.resource_link_title,
+            user_external_id=payload.user_id,
+            user_display_name=payload.user_display_name,
+        )
+        await session.commit()
+        raise
     owner_id = f"moodle-rest:{payload.lti_context_id}:{payload.user_id}"
     try:
         accepted = await stands.launch(

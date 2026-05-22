@@ -84,9 +84,7 @@ async def current_user(
     settings = get_settings()
     token = request.cookies.get(settings.cookie_access_name)
     if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="not_authenticated"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="not_authenticated")
     try:
         payload = verify_access_token(token)
     except TokenError as exc:
@@ -103,16 +101,12 @@ async def current_user(
 
     user = await auth.get_by_id(user_id)
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="user_gone"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="user_gone")
     return user
 
 
 # гуард для эндпоинтов доступных только супер-админу
 async def require_super_admin(user: User = Depends(current_user)) -> User:
     if not user.is_super_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="super_admin_required"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="super_admin_required")
     return user

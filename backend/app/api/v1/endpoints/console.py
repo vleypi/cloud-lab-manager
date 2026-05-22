@@ -87,7 +87,7 @@ async def get_stand_console_url(
     project_id = stand.pool_project.ki_project_id
     try:
         raw_url = await provider.get_vnc_console_url(project_id, stand.ki_server_id)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning(
             "console_url_failed",
             stand_id=str(stand_id),
@@ -239,9 +239,7 @@ async def stand_console_ws(
         pass
     except Exception as exc:
         close_code = WS_CLOSE_BACKEND_ERROR
-        logger.exception(
-            "console_session_error", stand_id=str(stand_id), error=str(exc)
-        )
+        logger.exception("console_session_error", stand_id=str(stand_id), error=str(exc))
         try:
             await websocket.close(code=WS_CLOSE_BACKEND_ERROR, reason="internal error")
         except Exception:
