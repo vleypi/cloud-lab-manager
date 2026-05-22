@@ -53,7 +53,7 @@ export const ADMIN_NAV_ITEMS: ReadonlyArray<INavItem> = [
     label: "Fake Moodle (демо)",
     href: ROUTES.FAKE_MOODLE,
     icon: <ExternalLinkIcon size={18} />,
-    badge: "demo",
+    badge: "",
     external: true,
   },
 ];

@@ -25,6 +25,9 @@ interface IInspectorPanelProps {
   // когда задан, селект шаблона скрывается и используется этот шаблон.
   // подбор: точное совпадение по name → startsWith → первый доступный
   lockedTemplate?: string | null;
+  // если передан — кнопка disabled, в hint выводится причина (например, нет floating IP).
+  // нужно чтобы препод не получал 409 «Stand has no reachable IP address» из ниоткуда
+  unreachableReason?: string | null;
 }
 
 export function InspectorPanel({
@@ -32,6 +35,7 @@ export function InspectorPanel({
   isStandReady,
   readOnly = false,
   lockedTemplate = null,
+  unreachableReason = null,
 }: IInspectorPanelProps) {
   const [templateName, setTemplateName] = useState("");
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
@@ -81,6 +85,12 @@ export function InspectorPanel({
         }
       />
 
+      {!readOnly && unreachableReason && (
+        <div className="mb-5 rounded-xl border border-amber-200/70 bg-amber-50/60 px-4 py-3 text-xs text-amber-900">
+          <strong>Авто-проверка недоступна:</strong> {unreachableReason}
+        </div>
+      )}
+
       {!readOnly && !lockedTemplate && (
         <form
           onSubmit={handleSchedule}
@@ -96,14 +106,20 @@ export function InspectorPanel({
                 value: template.name,
                 label: `${template.name} — ${template.display_name} (${template.checks_count} ш.)`,
               }))}
-              hint={isStandReady ? undefined : "Доступно только когда стенд в статусе READY"}
+              hint={
+                unreachableReason
+                  ? "Недоступно: ВМ не получила публичный IP"
+                  : isStandReady
+                    ? undefined
+                    : "Доступно только когда стенд в статусе READY"
+              }
             />
           </div>
           <Button
             type="submit"
             iconLeft={<PlayIcon size={14} />}
             isLoading={isPending}
-            disabled={!isStandReady || !templateName}
+            disabled={!isStandReady || !templateName || Boolean(unreachableReason)}
           >
             Запустить проверку
           </Button>
@@ -126,7 +142,7 @@ export function InspectorPanel({
             type="submit"
             iconLeft={<PlayIcon size={14} />}
             isLoading={isPending}
-            disabled={!isStandReady || !templateName}
+            disabled={!isStandReady || !templateName || Boolean(unreachableReason)}
           >
             Запустить проверку
           </Button>

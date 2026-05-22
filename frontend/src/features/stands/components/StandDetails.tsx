@@ -112,6 +112,23 @@ export function StandDetails({ stand }: IStandDetailsProps) {
           {stand.frozen_reason}
         </div>
       )}
+
+      {!stand.ki_floating_ip && stand.status === "ready" && (
+        <div className="mt-4 p-3 bg-amber-50 border border-amber-200/60 rounded-xl text-xs text-amber-900">
+          <strong>Floating IP не выделен.</strong> ВМ запущена, но публичный IP не получен,
+          поэтому SSH-инспектор и внешние подключения недоступны. Студент может работать только
+          через VNC-консоль.
+          {stand.floating_ip_error && (
+            <div className="mt-1 font-mono text-[11px] break-words text-amber-800/80">
+              {stand.floating_ip_error}
+            </div>
+          )}
+          <div className="mt-2 text-amber-800/90">
+            Проверьте в КИ-консоли: есть ли в проекте <code>{stand.pool_project.ki_project_name}</code> роутер,
+            привязанный к external network, и есть ли свободные floating IP в квоте проекта.
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

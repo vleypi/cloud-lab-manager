@@ -65,6 +65,8 @@ class StandOut(BaseModel):
     incident_reported_at: str | None = None
     incident_description: str | None = None
 
+    floating_ip_error: str | None = None
+
     @classmethod
     def from_orm_stand(cls, stand: Stand) -> "StandOut":
         base = cls.model_validate(stand)
@@ -75,6 +77,7 @@ class StandOut(BaseModel):
                 "incident_reported_by": extra.get("incident_reported_by"),
                 "incident_reported_at": extra.get("incident_reported_at"),
                 "incident_description": extra.get("incident_description"),
+                "floating_ip_error": extra.get("floating_ip_error"),
             }
         )
 

@@ -96,6 +96,13 @@ export default function LtiEmbedPage() {
               standId={stand.id}
               isStandReady={stand.status === "ready"}
               lockedTemplate={stand.lab_code}
+              unreachableReason={
+                !stand.ki_floating_ip && stand.status === "ready"
+                  ? stand.floating_ip_error
+                    ? `ВМ не получила публичный IP (${stand.floating_ip_error}). SSH-инспектору некуда подключаться. Обратитесь к преподавателю.`
+                    : "ВМ не получила публичный IP — SSH-инспектору некуда подключаться. Обратитесь к преподавателю."
+                  : null
+              }
             />
           </div>
         )}

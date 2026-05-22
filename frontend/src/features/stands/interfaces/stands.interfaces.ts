@@ -39,6 +39,10 @@ export interface IStand {
   incident_reported_at: string | null;
   incident_description: string | null;
 
+  // если КИ не выделил floating IP (нет роутера в проекте / нет external network),
+  // деплой не валится — стенд всё равно ready, но без SSH-доступа. инспектор будет недоступен
+  floating_ip_error: string | null;
+
   task_id: string | null;
   attempt: number;
 
