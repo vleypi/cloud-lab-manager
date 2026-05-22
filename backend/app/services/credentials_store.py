@@ -1,5 +1,5 @@
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 
 import redis.asyncio as redis_async
 import redis as redis_sync
@@ -13,10 +13,14 @@ class StandCredentials:
     ssh_private_key: str
     fingerprint: str
     keypair_name: str
+    console_password: str | None = None
 
     @classmethod
     def from_json(cls, raw: str) -> "StandCredentials":
-        return cls(**json.loads(raw))
+        data = json.loads(raw)
+        allowed = {f.name for f in fields(cls)}
+        filtered = {k: v for k, v in data.items() if k in allowed}
+        return cls(**filtered)
 
     def to_json(self) -> str:
         return json.dumps(asdict(self))

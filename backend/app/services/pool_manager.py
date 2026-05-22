@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
+import re
+
 import structlog
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +15,10 @@ from app.models.project import PoolProject, ProjectStatus
 from app.models.stand import Stand, StandStatus
 
 logger = structlog.get_logger(__name__)
+
+_OPENSTACK_ID_RE = re.compile(
+    r"^[0-9a-fA-F]{32}$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 _ACTIVE_STATUSES: tuple[StandStatus, ...] = (
     StandStatus.ALLOCATING,
@@ -42,13 +48,20 @@ class PoolManager:
                 PoolProject.last_released_at.asc().nulls_first(),
                 PoolProject.created_at.asc(),
             )
-            .limit(1)
             .with_for_update(skip_locked=True)
         )
         if course_code:
             stmt = stmt.where(PoolProject.ki_domain_name == course_code)
 
-        project = await self._session.scalar(stmt)
+        candidates = (await self._session.scalars(stmt)).all()
+        project = next(
+            (
+                c
+                for c in candidates
+                if _OPENSTACK_ID_RE.match((c.ki_project_id or "").strip())
+            ),
+            None,
+        )
         if project is None:
             logger.warning("pool_exhausted", owner=owner_external_id, course=course_code)
             raise PoolExhaustedError(

@@ -18,6 +18,7 @@ from app.models.project import PoolProject, ProjectStatus
 from app.models.runtime_settings import KEY_DEFAULT_TTL
 from app.models.stand import Stand, StandStatus
 from app.providers import get_cloud_provider
+from app.services.console_catalog import resolve_console_profile
 from app.services.credentials_store import StandCredentials, SyncCredentialsStore
 from app.services.lifecycle_settings import SyncLifecycleSettings
 from app.core.state_machine import assert_transition
@@ -129,6 +130,12 @@ def provision_stand(self: Task, stand_id: str) -> dict:
         except CloudProviderError as exc:
             logger.warning("provision_keypair_failed", stand_id=stand_id, error=str(exc))
             raise
+
+        console_profile = resolve_console_profile(stand.image_id)
+        console_password: str | None = None
+        if console_profile.protocol in ("vnc", "rdp"):
+            console_password = secrets.token_urlsafe(16)
+
         creds_store.put(
             stand_id,
             StandCredentials(
@@ -136,10 +143,15 @@ def provision_stand(self: Task, stand_id: str) -> dict:
                 ssh_private_key=keypair.private_key,
                 fingerprint=keypair.fingerprint,
                 keypair_name=keypair.name,
+                console_password=console_password,
             ),
         )
         stand.ki_keypair_name = keypair.name
         stand.ssh_public_key_fingerprint = keypair.fingerprint
+        stand.extra = {
+            **(stand.extra or {}),
+            "console": console_profile.to_dict(),
+        }
         if stand.status == StandStatus.ALLOCATING:
             _transition(stand, StandStatus.DEPLOYING, reason=None)
         session.commit()
@@ -157,7 +169,12 @@ def provision_stand(self: Task, stand_id: str) -> dict:
             deployed = None
 
         if deployed is None:
-            user_data = build_user_data()
+            user_data = build_user_data(
+                console_user=(console_profile.username or "student")
+                if console_profile.protocol in ("vnc", "rdp")
+                else None,
+                console_password=console_password,
+            )
             try:
                 deployed = asyncio.run(
                     provider.create_server(
@@ -173,6 +190,10 @@ def provision_stand(self: Task, stand_id: str) -> dict:
                             "stand_id": str(stand.id),
                             "course_code": stand.course_code or "",
                             "lab_code": stand.lab_code or "",
+                            "console_protocol": console_profile.protocol,
+                            "console_username": console_profile.username or "",
+                            "console_port": str(console_profile.port),
+                            "console_password": console_password or "",
                         },
                     )
                 )

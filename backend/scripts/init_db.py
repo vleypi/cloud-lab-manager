@@ -52,6 +52,8 @@ async def _seed_pool(path: Path) -> None:
         logger.info("pool_seed_empty_file", path=str(path))
         return
 
+    expected_ids = {entry["ki_project_id"] for entry in entries}
+
     async with AsyncSessionLocal() as session:
         for entry in entries:
             ki_project_id = entry["ki_project_id"]
@@ -80,6 +82,45 @@ async def _seed_pool(path: Path) -> None:
                 existing.ki_network_id = entry.get("ki_network_id")
                 existing.ki_router_id = entry.get("ki_router_id")
                 logger.info("pool_project_updated", name=entry["ki_project_name"])
+
+        orphans = (
+            await session.execute(
+                select(PoolProject).where(
+                    ~PoolProject.ki_project_id.in_(expected_ids),
+                )
+            )
+        ).scalars().all()
+        for orphan in orphans:
+            linked_stands = (
+                await session.execute(
+                    select(Stand).where(Stand.pool_project_id == orphan.id)
+                )
+            ).scalars().all()
+            for s in linked_stands:
+                logger.warning(
+                    "stand_removed_with_orphan_project",
+                    stand_id=str(s.id),
+                    status=s.status.value if s.status else None,
+                    pool_project_id=str(orphan.id),
+                )
+                await session.delete(s)
+            if linked_stands:
+                await session.flush()
+
+            if orphan.status == ProjectStatus.ALLOCATED:
+                logger.warning(
+                    "pool_project_orphan_was_allocated_force_freed",
+                    ki_project_id=orphan.ki_project_id,
+                )
+            logger.warning(
+                "pool_project_orphan_removed",
+                ki_project_id=orphan.ki_project_id,
+                ki_project_name=orphan.ki_project_name,
+                reason="not in pool.yaml",
+            )
+            await session.delete(orphan)
+            await session.flush()
+
         await session.commit()
 
 
