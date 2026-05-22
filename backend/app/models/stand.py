@@ -46,9 +46,7 @@ class Stand(Base, TimestampMixin):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     owner_external_id: Mapped[str] = mapped_column(String(128), nullable=False)
     owner_display_name: Mapped[str | None] = mapped_column(String(256), nullable=True)

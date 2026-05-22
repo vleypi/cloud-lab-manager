@@ -30,9 +30,7 @@ class PoolProject(Base, TimestampMixin):
         Index("ix_pool_projects_domain", "ki_domain_id"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     ki_project_id: Mapped[str] = mapped_column(String(64), nullable=False)
     ki_project_name: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -55,7 +53,7 @@ class PoolProject(Base, TimestampMixin):
         DateTime(timezone=True), nullable=True
     )
 
-    def __repr__(self) -> str: 
+    def __repr__(self) -> str:
         return (
             f"<PoolProject {self.ki_project_name} "
             f"({self.ki_domain_name}) status={self.status.value}>"

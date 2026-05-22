@@ -1,4 +1,3 @@
-
 import enum
 import uuid
 from datetime import datetime
@@ -40,9 +39,7 @@ class CheckRun(Base, TimestampMixin):
         Index("ix_check_runs_status", "status"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     stand_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("stands.id", ondelete="CASCADE"),
@@ -84,9 +81,7 @@ class CheckResult(Base, TimestampMixin):
     __tablename__ = "check_results"
     __table_args__ = (Index("ix_check_results_run", "check_run_id", "position"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     check_run_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("check_runs.id", ondelete="CASCADE"),
@@ -109,5 +104,12 @@ class CheckResult(Base, TimestampMixin):
     exit_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     spec: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+    section: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="other", server_default="other"
+    )
+    severity: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="critical", server_default="critical"
+    )
 
     run: Mapped[CheckRun] = relationship(back_populates="results")

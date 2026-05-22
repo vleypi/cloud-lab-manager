@@ -1,6 +1,8 @@
 import uuid
+from datetime import datetime
 
 from sqlalchemy import (
+    DateTime,
     Index,
     String,
     Text,
@@ -14,13 +16,9 @@ from app.db.base import Base, TimestampMixin
 
 class LtiPlatform(Base, TimestampMixin):
     __tablename__ = "lti_platforms"
-    __table_args__ = (
-        UniqueConstraint("issuer", "client_id", name="uq_lti_platforms_iss_client"),
-    )
+    __table_args__ = (UniqueConstraint("issuer", "client_id", name="uq_lti_platforms_iss_client"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     issuer: Mapped[str] = mapped_column(String(512), nullable=False)
@@ -55,9 +53,7 @@ class CourseMapping(Base, TimestampMixin):
         Index("ix_course_mappings_context", "lti_context_id"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     lti_context_id: Mapped[str] = mapped_column(String(256), nullable=False)
     resource_link_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
@@ -78,3 +74,32 @@ class CourseMapping(Base, TimestampMixin):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     default_ttl_seconds: Mapped[int | None] = mapped_column(nullable=True)
+
+
+class PendingLtiBinding(Base, TimestampMixin):
+    # запросы от Moodle с context_id/resource_link_id, для которых ещё нет CourseMapping.
+    # препод видит этот список в админке и одним кликом создаёт маппинг без копипаста id
+    __tablename__ = "pending_lti_bindings"
+    __table_args__ = (
+        UniqueConstraint(
+            "lti_context_id",
+            "resource_link_id",
+            name="uq_pending_lti_bindings_context_link",
+        ),
+        Index("ix_pending_lti_bindings_last_seen", "last_seen_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    lti_context_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    resource_link_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+
+    # человеческие заголовки из LTI payload (Moodle присылает context.title / resource_link.title)
+    context_title: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    resource_link_title: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+    # последний пользователь и счётчик попыток — препод видит «N студентов уже ждут»
+    last_user_external_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    last_user_display_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    seen_count: Mapped[int] = mapped_column(default=1, nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
