@@ -245,11 +245,3 @@ cloud-lab-manager/
 * `docker compose exec api ruff format app` - format backend
 * `docker compose exec api bandit -c pyproject.toml -r app -ll -ii` - SAST
 * `docker compose exec api pytest` - тесты
-
-## Точки расширения
-
-* Новый облачный провайдер: реализовать абстрактный `CloudProvider` из `backend/app/providers/base.py` и зарегистрировать в `get_cloud_provider()`.
-* Новый тип проверки: добавить `CheckKind`, Pydantic-модель в `inspector/loader.py` и хендлер в `inspector/checks.py`.
-* Новая лабораторная: положить YAML-шаблон в `config/check_templates/` и привязать к курсу через `CourseMapping.inspector_template` либо запускать вручную через `/api/v1/stands/{id}/checks`.
-* Новый протокол консоли: расширить `console_catalog` и `GuacdConnection.to_handshake_params()`.
-* Новая LMS: либо зарегистрировать как LTI 1.3 платформу (`POST /api/v1/lti/platforms`), либо использовать REST endpoint `/api/v1/integrations/moodle/launch` как пример собственного шлюза.
