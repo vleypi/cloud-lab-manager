@@ -5,15 +5,9 @@ _ALLOWED: dict[StandStatus, frozenset[StandStatus]] = {
     StandStatus.ALLOCATING: frozenset(
         {StandStatus.DEPLOYING, StandStatus.FAILED, StandStatus.CLEANING}
     ),
-    StandStatus.DEPLOYING: frozenset(
-        {StandStatus.READY, StandStatus.FAILED, StandStatus.CLEANING}
-    ),
-    StandStatus.READY: frozenset(
-        {StandStatus.FROZEN, StandStatus.CLEANING, StandStatus.FAILED}
-    ),
-    StandStatus.FROZEN: frozenset(
-        {StandStatus.READY, StandStatus.CLEANING}
-    ),
+    StandStatus.DEPLOYING: frozenset({StandStatus.READY, StandStatus.FAILED, StandStatus.CLEANING}),
+    StandStatus.READY: frozenset({StandStatus.FROZEN, StandStatus.CLEANING, StandStatus.FAILED}),
+    StandStatus.FROZEN: frozenset({StandStatus.READY, StandStatus.CLEANING}),
     StandStatus.FAILED: frozenset({StandStatus.CLEANING, StandStatus.DESTROYED}),
     StandStatus.CLEANING: frozenset({StandStatus.DESTROYED, StandStatus.FAILED}),
     StandStatus.DESTROYED: frozenset(),

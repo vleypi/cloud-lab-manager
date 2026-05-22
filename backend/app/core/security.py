@@ -1,6 +1,6 @@
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from argon2 import PasswordHasher
@@ -65,7 +65,7 @@ def verify_refresh_token(token: str) -> TokenPayload:
 
 
 def _issue(*, secret: str, ttl_seconds: int, sub: str, extra: dict) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload: dict[str, object] = {
         "sub": sub,
         "iat": int(now.timestamp()),
@@ -93,8 +93,8 @@ def _verify(token: str, *, secret: str, expected_typ: str) -> TokenPayload:
         subject=sub,
         is_super_admin=bool(payload.get("is_super_admin", False)),
         jti=str(payload.get("jti", "")),
-        issued_at=datetime.fromtimestamp(int(payload["iat"]), tz=timezone.utc),
-        expires_at=datetime.fromtimestamp(int(payload["exp"]), tz=timezone.utc),
+        issued_at=datetime.fromtimestamp(int(payload["iat"]), tz=UTC),
+        expires_at=datetime.fromtimestamp(int(payload["exp"]), tz=UTC),
     )
 
 
@@ -105,7 +105,7 @@ def hash_password(plain: str) -> str:
 def verify_password(plain: str, hashed: str) -> bool:
     try:
         return _password_hasher.verify(hashed, plain)
-    except (VerifyMismatchError, Exception):  # noqa: BLE001
+    except (VerifyMismatchError, Exception):
         return False
 
 

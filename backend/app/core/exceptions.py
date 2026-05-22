@@ -41,3 +41,8 @@ class ConsoleNotAvailableError(OrchestratorError):
 class ConsoleForbiddenError(OrchestratorError):
     http_status = 403
     code = "console_forbidden"
+
+
+class LtiStateExpiredError(OrchestratorError):
+    http_status = 410
+    code = "lti_state_expired"
