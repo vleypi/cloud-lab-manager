@@ -1,7 +1,6 @@
-from datetime import datetime, timezone
-from uuid import UUID
-
 import re
+from datetime import UTC, datetime
+from uuid import UUID
 
 import structlog
 from sqlalchemy import func, select, update
@@ -55,11 +54,7 @@ class PoolManager:
 
         candidates = (await self._session.scalars(stmt)).all()
         project = next(
-            (
-                c
-                for c in candidates
-                if _OPENSTACK_ID_RE.match((c.ki_project_id or "").strip())
-            ),
+            (c for c in candidates if _OPENSTACK_ID_RE.match((c.ki_project_id or "").strip())),
             None,
         )
         if project is None:
@@ -86,11 +81,7 @@ class PoolManager:
         *,
         to_status: ProjectStatus = ProjectStatus.CLEANING,
     ) -> None:
-        stmt = (
-            update(PoolProject)
-            .where(PoolProject.id == project_id)
-            .values(status=to_status)
-        )
+        stmt = update(PoolProject).where(PoolProject.id == project_id).values(status=to_status)
         await self._session.execute(stmt)
         logger.info("pool_released", project_id=str(project_id), to_status=to_status.value)
 
@@ -100,7 +91,7 @@ class PoolManager:
             .where(PoolProject.id == project_id)
             .values(
                 status=ProjectStatus.FREE,
-                last_released_at=datetime.now(timezone.utc),
+                last_released_at=datetime.now(UTC),
             )
         )
         await self._session.execute(stmt)

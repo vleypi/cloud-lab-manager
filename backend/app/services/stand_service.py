@@ -6,12 +6,17 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import StandNotFoundError
+from app.core.exceptions import (
+    CapacityExceededError,
+    CloudProviderError,
+    StandNotFoundError,
+)
 from app.core.state_machine import is_active
 from app.models.runtime_settings import KEY_CAPACITY_THRESHOLD
 from app.models.stand import Stand, StandStatus
 from app.providers import CloudProvider, get_cloud_provider
-from app.services.capacity_checker import CapacityChecker
+from app.services.capacity_audit import CapacityAuditRecorder
+from app.services.capacity_checker import CapacityChecker, FlavorRequirements
 from app.services.lifecycle_settings import LifecycleSettings
 from app.services.pool_manager import PoolManager
 
@@ -51,10 +56,38 @@ class StandService:
 
     async def launch(self, req: StandLaunchRequest) -> StandLaunchAccepted:
         threshold = await self._settings.get_float(KEY_CAPACITY_THRESHOLD)
-        await self._capacity.assert_can_allocate(
-            owner_external_id=req.owner_external_id,
-            threshold_override=threshold,
-        )
+
+        flavor_req: FlavorRequirements | None = None
+        try:
+            flavor = await self._provider.get_flavor(req.flavor_id)
+            flavor_req = FlavorRequirements.from_flavor(flavor)
+        except CloudProviderError as exc:
+            # если не удалось узнать flavor — деградируем до реактивной проверки
+            # (без предиктивной формулы), но фиксируем это в логе
+            logger.warning(
+                "flavor_lookup_failed_falling_back_to_reactive_capacity",
+                flavor_id=req.flavor_id,
+                error=str(exc)[:200],
+            )
+
+        try:
+            await self._capacity.assert_can_allocate(
+                owner_external_id=req.owner_external_id,
+                threshold_override=threshold,
+                flavor=flavor_req,
+                flavor_id=req.flavor_id,
+            )
+        except CapacityExceededError as exc:
+            await CapacityAuditRecorder(self._session).record_from_exception(
+                owner_external_id=req.owner_external_id,
+                owner_display_name=req.owner_display_name,
+                course_code=req.course_code,
+                lab_code=req.lab_code,
+                image_id=req.image_id,
+                flavor_id=req.flavor_id,
+                exc=exc,
+            )
+            raise
 
         project = await self._pool.allocate(
             owner_external_id=req.owner_external_id,
