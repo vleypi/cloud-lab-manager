@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 import structlog
@@ -23,7 +23,7 @@ logger = structlog.get_logger(__name__)
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _pick_host(stand: Stand) -> str | None:
@@ -52,9 +52,7 @@ def run_inspector(self: Task, run_id: str, template_name: str) -> dict:
             )
             return {"status": run.status.value}
 
-        stand = session.execute(
-            select(Stand).where(Stand.id == run.stand_id)
-        ).scalar_one()
+        stand = session.execute(select(Stand).where(Stand.id == run.stand_id)).scalar_one()
         host = _pick_host(stand)
         if not host:
             _finalize_error(session, run, "Stand has no reachable IP address")
@@ -67,13 +65,13 @@ def run_inspector(self: Task, run_id: str, template_name: str) -> dict:
 
         try:
             template = load_template(template_name)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             _finalize_error(session, run, f"Failed to load template: {exc}")
             return {"status": "error"}
 
         try:
             report = asyncio.run(run_template(template, host=host))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.exception("inspector_run_crash", run_id=run_id)
             _finalize_error(session, run, f"Runner crashed: {exc}")
             return {"status": "error"}
@@ -92,6 +90,8 @@ def run_inspector(self: Task, run_id: str, template_name: str) -> dict:
                     exit_code=outcome.exit_code,
                     duration_ms=outcome.duration_ms,
                     spec={"params": _jsonable(spec.params), "kind": spec.kind.value},
+                    section=spec.section.value,
+                    severity=spec.severity.value,
                 )
             )
         run.total = report.total

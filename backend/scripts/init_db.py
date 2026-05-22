@@ -11,11 +11,15 @@ from sqlalchemy import select
 
 from app.db.base import Base
 from app.db.session import AsyncSessionLocal, sync_engine
-from app.models import (  # noqa: F401  регистрирует таблицы в Base.metadata
+from app.models import ( 
+    CapacityRejection,
     CheckResult,
     CheckRun,
     CourseMapping,
+    LifecycleSettingChange,
     LtiPlatform,
+    LtiUser,
+    PendingLtiBinding,
     PoolProject,
     ProjectStatus,
     RuntimeSetting,

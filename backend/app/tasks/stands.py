@@ -1,6 +1,6 @@
 import asyncio
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import structlog
@@ -11,9 +11,10 @@ from sqlalchemy.orm import Session
 
 from app.celery_app import celery_app
 from app.config import get_settings
-from app.core.exceptions import CloudProviderError
-from app.db.session import SyncSessionLocal
 from app.core.cloud_init import build_user_data
+from app.core.exceptions import CloudProviderError
+from app.core.state_machine import assert_transition
+from app.db.session import SyncSessionLocal
 from app.models.project import PoolProject, ProjectStatus
 from app.models.runtime_settings import KEY_DEFAULT_TTL
 from app.models.stand import Stand, StandStatus
@@ -21,13 +22,12 @@ from app.providers import get_cloud_provider
 from app.services.console_catalog import resolve_console_profile
 from app.services.credentials_store import StandCredentials, SyncCredentialsStore
 from app.services.lifecycle_settings import SyncLifecycleSettings
-from app.core.state_machine import assert_transition
 
 logger = structlog.get_logger(__name__)
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _load_stand(session: Session, stand_id: UUID) -> Stand | None:
@@ -35,9 +35,7 @@ def _load_stand(session: Session, stand_id: UUID) -> Stand | None:
 
 
 def _load_project(session: Session, project_id: UUID) -> PoolProject:
-    return session.execute(
-        select(PoolProject).where(PoolProject.id == project_id)
-    ).scalar_one()
+    return session.execute(select(PoolProject).where(PoolProject.id == project_id)).scalar_one()
 
 
 def _transition(stand: Stand, to: StandStatus, *, reason: str | None = None) -> None:
@@ -48,7 +46,7 @@ def _transition(stand: Stand, to: StandStatus, *, reason: str | None = None) -> 
 
 
 class ProvisionStandTask(Task):
-    def on_failure(self, exc, task_id, args, kwargs, einfo) -> None:  # noqa: ANN001
+    def on_failure(self, exc, task_id, args, kwargs, einfo) -> None:
         raw_id = args[0] if args else kwargs.get("stand_id")
         if not raw_id:
             return
@@ -115,9 +113,7 @@ def provision_stand(self: Task, stand_id: str) -> dict:
 
         if stand.ki_keypair_name and stand.status == StandStatus.DEPLOYING:
             try:
-                asyncio.run(
-                    provider.delete_keypair(project.ki_project_id, stand.ki_keypair_name)
-                )
+                asyncio.run(provider.delete_keypair(project.ki_project_id, stand.ki_keypair_name))
             except CloudProviderError as exc:
                 logger.warning(
                     "stale_keypair_cleanup_failed",
@@ -204,6 +200,7 @@ def provision_stand(self: Task, stand_id: str) -> dict:
             session.commit()
 
         floating_ip: str | None = None
+        floating_ip_error: str | None = None
         try:
             floating_ip = asyncio.run(
                 provider.attach_floating_ip(
@@ -212,9 +209,26 @@ def provision_stand(self: Task, stand_id: str) -> dict:
                 )
             )
         except CloudProviderError as exc:
-            logger.warning("provision_floating_ip_failed", stand_id=stand_id, error=str(exc))
+            # без details причина теряется, инспектор потом отказывается с непонятным
+            # «no reachable IP», а оригинал (нет external network / нет роутера / ...) висит только тут
+            floating_ip_error = f"{exc}: {getattr(exc, 'details', None)}"
+            logger.warning(
+                "provision_floating_ip_failed",
+                stand_id=stand_id,
+                error=str(exc),
+                cause=str(getattr(exc, "details", None)),
+                ki_project=project.ki_project_name,
+                ki_network_id=project.ki_network_id,
+                ki_router_id=project.ki_router_id,
+            )
+
         stand.ki_floating_ip = floating_ip
-        stand.extra = {**(stand.extra or {}), "fixed_ips": deployed.fixed_ips}
+        extra_update = {"fixed_ips": deployed.fixed_ips}
+        # пробрасываем причину в extra, чтобы UI и /stands/{id} могли её показать —
+        # инспектор сейчас валится с обтекаемым «no reachable IP», и препод гадает что не так
+        if floating_ip_error:
+            extra_update["floating_ip_error"] = floating_ip_error
+        stand.extra = {**(stand.extra or {}), **extra_update}
 
         ttl_seconds = SyncLifecycleSettings(session).get_int(KEY_DEFAULT_TTL)
         stand.deployed_at = _now()
@@ -239,9 +253,7 @@ def provision_stand(self: Task, stand_id: str) -> dict:
         }
 
 
-def _mark_failed(
-    session: Session, stand: Stand, project: PoolProject, reason: str
-) -> None:
+def _mark_failed(session: Session, stand: Stand, project: PoolProject, reason: str) -> None:
     provider = get_cloud_provider()
     creds_store = SyncCredentialsStore()
     logger.error("stand_failed", stand_id=str(stand.id), reason=reason)
@@ -334,25 +346,33 @@ def sweep_expired(self: Task) -> dict:
     stall_seconds = max(60, int(get_settings().provision_stall_seconds))
     stall_cutoff = now - timedelta(seconds=stall_seconds)
     with SyncSessionLocal() as session:
-        candidates = session.execute(
-            select(Stand)
-            .where(Stand.status.in_((StandStatus.READY, StandStatus.FAILED)))
-            .where(Stand.expires_at.is_not(None))
-            .where(Stand.expires_at <= now)
-            .with_for_update(skip_locked=True, of=Stand.__table__)
-        ).scalars().all()
+        candidates = (
+            session.execute(
+                select(Stand)
+                .where(Stand.status.in_((StandStatus.READY, StandStatus.FAILED)))
+                .where(Stand.expires_at.is_not(None))
+                .where(Stand.expires_at <= now)
+                .with_for_update(skip_locked=True, of=Stand.__table__)
+            )
+            .scalars()
+            .all()
+        )
         for stand in candidates:
             stand.task_id = "sweep-pending"
             destroy_stand.delay(str(stand.id))
             enqueued.append(str(stand.id))
         session.commit()
 
-        stuck = session.execute(
-            select(Stand)
-            .where(Stand.status.in_((StandStatus.ALLOCATING, StandStatus.DEPLOYING)))
-            .where(Stand.updated_at <= stall_cutoff)
-            .with_for_update(skip_locked=True, of=Stand.__table__)
-        ).scalars().all()
+        stuck = (
+            session.execute(
+                select(Stand)
+                .where(Stand.status.in_((StandStatus.ALLOCATING, StandStatus.DEPLOYING)))
+                .where(Stand.updated_at <= stall_cutoff)
+                .with_for_update(skip_locked=True, of=Stand.__table__)
+            )
+            .scalars()
+            .all()
+        )
         for stand in stuck:
             project = _load_project(session, stand.pool_project_id)
             reason = (
