@@ -16,7 +16,7 @@ logger = structlog.get_logger("app.main")
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI): 
+async def lifespan(_: FastAPI):
     settings = get_settings()
     logger.info(
         "app_start",
@@ -27,7 +27,7 @@ async def lifespan(_: FastAPI):
     async with AsyncSessionLocal() as session:
         try:
             await seed_super_admin(session)
-        except Exception: 
+        except Exception:
             logger.exception("super_admin_seed_failed")
     yield
     logger.info("app_stop")

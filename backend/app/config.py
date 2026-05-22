@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     app_env: Literal["development", "staging", "production"] = "development"
     app_debug: bool = False
-    app_host: str = "0.0.0.0" 
+    app_host: str = "0.0.0.0"
     app_port: int = 8000
     app_secret_key: SecretStr = Field(default=SecretStr("change-me"))
 
