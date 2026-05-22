@@ -5,6 +5,7 @@ from app.api.v1.endpoints import (
     auth,
     capacity,
     cloud,
+    console,
     health,
     inspector,
     integrations,
@@ -19,6 +20,7 @@ api_router.include_router(auth.router)
 api_router.include_router(capacity.router)
 api_router.include_router(pool.router)
 api_router.include_router(stands.router)
+api_router.include_router(console.router)
 api_router.include_router(inspector.router)
 api_router.include_router(admin.router)
 api_router.include_router(lti.router)

@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import ssl
+import threading
 from typing import Any
 
 import openstack
@@ -70,12 +71,15 @@ def _legacy_requests_session() -> requests.Session:
 _TRANSIENT = (
     os_exc.HttpException,
     os_exc.SDKException,
+    ks_exc.Unauthorized,
+    ks_exc.ConnectFailure,
+    ks_exc.DiscoveryFailure,
     ConnectionError,
     TimeoutError,
 )
 
 
-def _retry(): 
+def _retry():
     return retry(
         retry=retry_if_exception_type(_TRANSIENT),
         wait=wait_exponential(multiplier=0.5, min=0.5, max=4),
@@ -84,12 +88,41 @@ def _retry():
     )
 
 
+def _warm_up_auth(sess: ks_session.Session, *, project_id: str | None) -> None:
+    @retry(
+        retry=retry_if_exception_type(
+            (ks_exc.Unauthorized, ks_exc.ConnectFailure, ConnectionError, TimeoutError)
+        ),
+        wait=wait_exponential(multiplier=1.0, min=1.0, max=8.0),
+        stop=stop_after_attempt(5),
+        reraise=True,
+    )
+    def _do() -> None:
+        sess.invalidate()
+        sess.get_token()
+
+    try:
+        _do()
+        logger.info(
+            "openstack_auth_warmed_up",
+            project_id=project_id,
+            attempts_until_success="<=5",
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "openstack_auth_warmup_failed",
+            project_id=project_id,
+            error=str(exc)[:200],
+        )
+        raise
+
+
 class OpenStackProvider(CloudProvider):
     def __init__(self) -> None:
         self._settings = get_settings()
         self._system_conn: openstack.connection.Connection | None = None
         self._project_conns: dict[str, openstack.connection.Connection] = {}
-        self._lock = asyncio.Lock()
+        self._build_lock = threading.Lock()
 
     def _build_connection(self, *, project_id: str | None) -> openstack.connection.Connection:
         settings = self._settings
@@ -123,13 +156,14 @@ class OpenStackProvider(CloudProvider):
                 verify=False,
                 session=_legacy_requests_session(),
             )
+            _warm_up_auth(sess, project_id=auth_kwargs.get("project_id"))
             return os_connection.Connection(
                 session=sess,
                 region_name=settings.os_region_name,
                 interface=settings.os_interface,
                 identity_api_version=settings.os_identity_api_version,
             )
-        except os_exc.SDKException as exc:
+        except (os_exc.SDKException, ks_exc.Unauthorized) as exc:
             raise CloudProviderError(
                 "Failed to authenticate against KI Keystone",
                 details={"project_id": project_id},
@@ -137,24 +171,30 @@ class OpenStackProvider(CloudProvider):
 
     async def _system(self) -> openstack.connection.Connection:
         if self._system_conn is None:
-            async with self._lock:
-                if self._system_conn is None:
-                    self._system_conn = await asyncio.to_thread(
-                        self._build_connection, project_id=None
-                    )
+            self._system_conn = await asyncio.to_thread(
+                self._build_or_get_system_sync
+            )
         return self._system_conn
+
+    def _build_or_get_system_sync(self) -> openstack.connection.Connection:
+        with self._build_lock:
+            if self._system_conn is None:
+                self._system_conn = self._build_connection(project_id=None)
+            return self._system_conn
 
     async def _project(self, project_id: str) -> openstack.connection.Connection:
         conn = self._project_conns.get(project_id)
-        if conn is None:
-            async with self._lock:
-                conn = self._project_conns.get(project_id)
-                if conn is None:
-                    conn = await asyncio.to_thread(
-                        self._build_connection, project_id=project_id
-                    )
-                    self._project_conns[project_id] = conn
-        return conn
+        if conn is not None:
+            return conn
+        return await asyncio.to_thread(self._build_or_get_project_sync, project_id)
+
+    def _build_or_get_project_sync(self, project_id: str) -> openstack.connection.Connection:
+        with self._build_lock:
+            conn = self._project_conns.get(project_id)
+            if conn is None:
+                conn = self._build_connection(project_id=project_id)
+                self._project_conns[project_id] = conn
+            return conn
 
     async def get_cluster_utilization(self) -> ClusterUtilization:
         try:
@@ -406,6 +446,46 @@ class OpenStackProvider(CloudProvider):
                 details={"server_id": server_id, "error": str(exc)[:200]},
             ) from exc
         return ip
+
+    async def get_vnc_console_url(self, project_id: str, server_id: str) -> str:
+        conn = await self._project(project_id)
+        try:
+            url = await asyncio.to_thread(self._get_vnc_console_url, conn, server_id)
+        except Exception as exc:  # noqa: BLE001
+            raise CloudProviderError(
+                "Failed to obtain VNC console URL",
+                details={"server_id": server_id, "error": str(exc)[:200]},
+            ) from exc
+        return url
+
+    def _get_vnc_console_url(
+        self, conn: openstack.connection.Connection, server_id: str
+    ) -> str:
+        try:
+            resp = conn.compute.post(
+                f"/servers/{server_id}/remote-consoles",
+                json={"remote_console": {"protocol": "vnc", "type": "novnc"}},
+                headers={"OpenStack-API-Version": "compute 2.6"},
+            )
+            body = resp.json() if hasattr(resp, "json") else {}
+            url = (body.get("remote_console") or {}).get("url")
+            if url:
+                return url
+        except Exception as exc:  # noqa: BLE001
+            logger.info("remote_consoles_failed_falling_back", error=str(exc)[:200])
+
+        resp = conn.compute.post(
+            f"/servers/{server_id}/action",
+            json={"os-getVNCConsole": {"type": "novnc"}},
+        )
+        body = resp.json() if hasattr(resp, "json") else {}
+        url = (body.get("console") or {}).get("url")
+        if not url:
+            raise CloudProviderError(
+                "OpenStack did not return a console URL",
+                details={"server_id": server_id, "response": str(body)[:200]},
+            )
+        return url
 
     @_retry()
     def _attach_floating_ip(

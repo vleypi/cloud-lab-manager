@@ -92,6 +92,19 @@ class StandCredentialsOut(BaseModel):
     fingerprint: str
     ssh_public_key: str
     ssh_private_key: str
+    console_password: str | None = None
+
+
+class ConsoleTokenOut(BaseModel):
+    token: str
+    expires_in: int
+    ws_url: str
+
+
+class ConsoleUrlOut(BaseModel):
+    url: str
+    type: str = "novnc"
+    rewrite: bool = False
 
 
 class StandActionAcceptedOut(BaseModel):

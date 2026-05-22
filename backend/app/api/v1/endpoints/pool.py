@@ -5,9 +5,25 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import structlog
+
 from app.api.deps import cloud_provider, db_session, pool_manager
 from app.models.project import PoolProject, ProjectStatus
+from app.models.stand import Stand, StandStatus
 from app.providers import CloudProvider
+
+logger = structlog.get_logger(__name__)
+
+# стенды в этих статусах считаем «живыми» — нельзя удалять проект, на который они ссылаются
+_ACTIVE_STAND_STATUSES = frozenset(
+    {
+        StandStatus.ALLOCATING,
+        StandStatus.DEPLOYING,
+        StandStatus.READY,
+        StandStatus.FROZEN,
+        StandStatus.CLEANING,
+    }
+)
 from app.schemas.capacity import PoolInventoryOut
 from app.schemas.pool import (
     DiscoveredKiProject,
@@ -94,6 +110,33 @@ async def delete_project(
             status_code=status.HTTP_409_CONFLICT,
             detail="Cannot delete an allocated project, destroy the stand first",
         )
+
+    # FK stands.pool_project_id = RESTRICT + NOT NULL: пока хоть один стенд (даже терминальный)
+    # держит ссылку, ALTER не пройдёт. Историю терминальных стендов чистим в той же транзакции,
+    # активные — отказываем (как и в init_db.py orphan-cleanup)
+    linked_stands = (
+        await session.execute(select(Stand).where(Stand.pool_project_id == project_id))
+    ).scalars().all()
+    active = [s for s in linked_stands if s.status in _ACTIVE_STAND_STATUSES]
+    if active:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Cannot delete: {len(active)} active stand(s) still reference this project. "
+                "Destroy them first."
+            ),
+        )
+    for s in linked_stands:
+        logger.warning(
+            "stand_history_purged_with_pool_project",
+            stand_id=str(s.id),
+            stand_status=s.status.value if s.status else None,
+            pool_project_id=str(project_id),
+        )
+        await session.delete(s)
+    if linked_stands:
+        await session.flush()
+
     await session.delete(project)
     await session.commit()
 

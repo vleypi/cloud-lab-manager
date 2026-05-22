@@ -1,9 +1,21 @@
+import re
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.project import PoolProject, ProjectStatus
+
+_OPENSTACK_ID_RE = re.compile(r"^[0-9a-fA-F]{32}$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+
+
+def _validate_openstack_id(value: str, field: str) -> str:
+    v = (value or "").strip()
+    if not _OPENSTACK_ID_RE.match(v):
+        raise ValueError(
+            f"{field} must be an OpenStack ID (32 hex chars) or UUID, got {value!r}"
+        )
+    return v
 
 
 class PoolProjectIn(BaseModel):
@@ -13,6 +25,16 @@ class PoolProjectIn(BaseModel):
     ki_domain_name: str = Field(..., min_length=1, max_length=128)
     ki_network_id: str | None = Field(default=None, max_length=64)
     ki_router_id: str | None = Field(default=None, max_length=64)
+
+    @field_validator("ki_project_id")
+    @classmethod
+    def _project_id_is_openstack(cls, v: str) -> str:
+        return _validate_openstack_id(v, "ki_project_id")
+
+    @field_validator("ki_domain_id")
+    @classmethod
+    def _domain_id_is_openstack(cls, v: str) -> str:
+        return _validate_openstack_id(v, "ki_domain_id")
 
 
 class PoolProjectOut(BaseModel):

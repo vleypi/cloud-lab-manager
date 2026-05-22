@@ -12,21 +12,52 @@ def inspector_public_key() -> str | None:
     return path.read_text(encoding="utf-8").strip()
 
 
-def build_user_data(*, extra_authorized_keys: list[str] | None = None) -> str | None:
+def build_user_data(
+    *,
+    extra_authorized_keys: list[str] | None = None,
+    console_user: str | None = None,
+    console_password: str | None = None,
+) -> str | None:
     pub = inspector_public_key()
-    if not pub:
+    if not pub and not console_password:
         return None
 
     settings = get_settings()
-    keys = [pub, *(extra_authorized_keys or [])]
-    keys_block = "\n".join(f"      - {k}" for k in keys)
+    sections: list[str] = ["#cloud-config"]
+    users: list[str] = []
 
-    return f"""#cloud-config
-users:
-  - name: {settings.inspector_ssh_username}
+    if pub:
+        keys = [pub, *(extra_authorized_keys or [])]
+        keys_block = "\n".join(f"      - {k}" for k in keys)
+        users.append(
+            f"""  - name: {settings.inspector_ssh_username}
     lock_passwd: true
     shell: /bin/bash
     sudo: 'ALL=(ALL) NOPASSWD: /bin/systemctl is-active *, /bin/systemctl status *, /usr/bin/ss -tln, /usr/bin/ss -tlnp, /bin/cat /etc/*, /usr/bin/dpkg -s *, /usr/bin/rpm -q *'
     ssh_authorized_keys:
-{keys_block}
-"""
+{keys_block}"""
+        )
+
+    if console_user and console_password:
+        users.append(
+            f"""  - name: {console_user}
+    lock_passwd: false
+    shell: /bin/bash
+    sudo: 'ALL=(ALL) NOPASSWD:ALL'
+    plain_text_passwd: '{console_password}'"""
+        )
+
+    if users:
+        sections.append("users:")
+        sections.append("\n".join(users))
+
+    if console_password:
+        sections.append(
+            f"""chpasswd:
+  expire: false
+  list: |
+    {console_user or 'student'}:{console_password}
+ssh_pwauth: true"""
+        )
+
+    return "\n".join(sections) + "\n"

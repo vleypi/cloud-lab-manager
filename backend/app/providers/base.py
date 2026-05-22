@@ -63,6 +63,10 @@ class CloudProvider(abc.ABC):
     ) -> str:
         ...
 
+    @abc.abstractmethod
+    async def get_vnc_console_url(self, project_id: str, server_id: str) -> str:
+        ...
+
     # видимые в проекте сети для выпадающего списка
     @abc.abstractmethod
     async def list_networks(self, project_id: str | None = None) -> list[CloudNetwork]:

@@ -31,3 +31,13 @@ class StandNotFoundError(OrchestratorError):
 class CloudProviderError(OrchestratorError):
     http_status = 502
     code = "cloud_provider_error"
+
+
+class ConsoleNotAvailableError(OrchestratorError):
+    http_status = 409
+    code = "console_not_available"
+
+
+class ConsoleForbiddenError(OrchestratorError):
+    http_status = 403
+    code = "console_forbidden"
