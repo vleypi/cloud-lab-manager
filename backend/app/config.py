@@ -84,6 +84,13 @@ class Settings(BaseSettings):
     csrf_header_name: str = "X-CSRF-Token"
     csrf_ttl_seconds: int = 28_800
 
+    guacd_host: str = "guacd"
+    guacd_port: int = 4822
+    console_token_ttl_seconds: int = 60
+    console_default_width: int = 1280
+    console_default_height: int = 800
+    console_default_dpi: int = 96
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
