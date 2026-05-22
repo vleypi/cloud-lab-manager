@@ -16,12 +16,19 @@ import { useCourseMappings } from "@/features/mappings/hooks/useCourseMappings";
 import { useUpsertMapping } from "@/features/mappings/hooks/useUpsertMapping";
 import { usePoolProjects } from "@/features/pool/hooks/usePoolProjects";
 
+interface ILockedLtiIds {
+  lti_context_id: string;
+  resource_link_id: string | null;
+  context_title?: string | null;
+  resource_link_title?: string | null;
+}
+
 interface IUpsertMappingModalProps {
   initialMapping?: ICourseMapping;
+  lockedLtiIds?: ILockedLtiIds;
   onClose: () => void;
 }
 
-// уникальные непустые значения из существующих маппингов — для datalist подсказок
 function uniqueStrings(values: Array<string | null | undefined>): string[] {
   return Array.from(
     new Set(
@@ -39,8 +46,6 @@ interface IFormSectionProps {
   last?: boolean;
 }
 
-// смысловой блок формы: 2-колоночная шапка (название + пояснение слева, поля справа)
-// разделители между секциями — тонкая нижняя граница, без коробок и фоновых заливок
 function FormSection({ title, description, children, last = false }: IFormSectionProps) {
   return (
     <section
@@ -61,7 +66,7 @@ function FormSection({ title, description, children, last = false }: IFormSectio
   );
 }
 
-export function UpsertMappingModal({ initialMapping, onClose }: IUpsertMappingModalProps) {
+export function UpsertMappingModal({ initialMapping, lockedLtiIds, onClose }: IUpsertMappingModalProps) {
   const { data: images } = useCloudImages();
   const { data: flavors } = useCloudFlavors();
   const { data: templates } = useInspectorTemplates();
@@ -70,20 +75,20 @@ export function UpsertMappingModal({ initialMapping, onClose }: IUpsertMappingMo
   const { mutate, isPending, error } = useUpsertMapping();
 
   const [form, setForm] = useState<ICourseMappingPayload>({
-    lti_context_id: initialMapping?.lti_context_id ?? "",
-    resource_link_id: initialMapping?.resource_link_id ?? "",
+    lti_context_id: lockedLtiIds?.lti_context_id ?? initialMapping?.lti_context_id ?? "",
+    resource_link_id:
+      lockedLtiIds?.resource_link_id ?? initialMapping?.resource_link_id ?? "",
     course_code: initialMapping?.course_code ?? "",
     ki_domain_name: initialMapping?.ki_domain_name ?? "",
     lab_code: initialMapping?.lab_code ?? "",
     image_id: initialMapping?.image_id ?? "",
     flavor_id: initialMapping?.flavor_id ?? "",
     inspector_template: initialMapping?.inspector_template ?? "",
-    title: initialMapping?.title ?? "",
+    title: initialMapping?.title ?? lockedLtiIds?.resource_link_title ?? "",
     description: initialMapping?.description ?? "",
     default_ttl_seconds: initialMapping?.default_ttl_seconds ?? undefined,
   });
 
-  // уникальные домены пула с подсчётом свободных/всего, для информера в Select
   const poolDomainStats = useMemo(() => {
     const map = new Map<string, { free: number; total: number }>();
     for (const p of poolProjects ?? []) {
@@ -95,7 +100,6 @@ export function UpsertMappingModal({ initialMapping, onClose }: IUpsertMappingMo
     return map;
   }, [poolProjects]);
 
-  // в пуле ли текущий домен — true только для реальных, без учёта синтетической orphan-опции
   const selectedDomainInPool = poolDomainStats.has(form.ki_domain_name);
 
   const domainOptions = useMemo(() => {
@@ -105,8 +109,7 @@ export function UpsertMappingModal({ initialMapping, onClose }: IUpsertMappingMo
         value: name,
         label: `${name} — ${counts.free} свободно из ${counts.total}`,
       }));
-    // если редактируем маппинг с orphan-доменом, явно показываем его в списке с пометкой,
-    // иначе нативный <select> молча подменяет визуал на первую валидную опцию без onChange
+
     if (form.ki_domain_name && !selectedDomainInPool) {
       return [
         { value: form.ki_domain_name, label: `${form.ki_domain_name} (нет в пуле)` },
@@ -154,7 +157,6 @@ export function UpsertMappingModal({ initialMapping, onClose }: IUpsertMappingMo
   const update = <K extends keyof ICourseMappingPayload>(key: K, value: ICourseMappingPayload[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  // выбор домена: если course_code ещё пуст — подставляем имя домена (часто совпадает)
   const onDomainChange = (domain: string) => {
     setForm((prev) => ({
       ...prev,
@@ -163,8 +165,6 @@ export function UpsertMappingModal({ initialMapping, onClose }: IUpsertMappingMo
     }));
   };
 
-  // выбор inspector template: если lab_code ещё пуст — подставляем имя шаблона
-  // (решает рассинхрон вида lab-1 vs lab-01: фронт пристёгивает lab_code к реальному шаблону)
   const onTemplateChange = (template: string) => {
     setForm((prev) => ({
       ...prev,
@@ -197,6 +197,27 @@ export function UpsertMappingModal({ initialMapping, onClose }: IUpsertMappingMo
           ))}
         </datalist>
 
+        {lockedLtiIds && (
+          <div className="mb-5 rounded-xl border border-ki-blue/20 bg-ki-blue-light px-4 py-3">
+            <div className="text-xs font-semibold text-ki-blue-strong uppercase tracking-wide">
+              Привязка к активности из Moodle
+            </div>
+            <div className="mt-1 text-sm text-ki-dark">
+              {lockedLtiIds.resource_link_title ?? lockedLtiIds.context_title ?? "Без названия"}
+            </div>
+            <div className="mt-1 text-[11px] text-gray-500 font-mono">
+              context: {lockedLtiIds.lti_context_id}
+              {lockedLtiIds.resource_link_id && (
+                <> · link: {lockedLtiIds.resource_link_id}</>
+              )}
+            </div>
+            <p className="mt-2 text-xs text-gray-600">
+              LTI-идентификаторы заполнены автоматически и заблокированы — менять их не нужно.
+              Выберите домен КИ, образ, flavor и шаблон проверки.
+            </p>
+          </div>
+        )}
+
         <FormSection
           title="Описание для студента"
           description="Видно в Moodle на странице запуска лабы"
@@ -226,18 +247,24 @@ export function UpsertMappingModal({ initialMapping, onClose }: IUpsertMappingMo
               value={form.lti_context_id}
               onChange={(event) => update("lti_context_id", event.target.value)}
               placeholder="42"
-              hint="ID курса в Moodle"
+              hint={lockedLtiIds ? "Из LTI-запроса Moodle (заблокирован)" : "ID курса в Moodle"}
               list="mapping-ctx-list"
               autoComplete="off"
+              readOnly={Boolean(lockedLtiIds)}
+              className={lockedLtiIds ? "bg-gray-50 text-gray-500 cursor-not-allowed" : undefined}
             />
             <Input
               label="resource_link_id (опц.)"
               value={form.resource_link_id ?? ""}
               onChange={(event) => update("resource_link_id", event.target.value)}
               placeholder="act-7"
-              hint="Override для конкретной активности"
+              hint={
+                lockedLtiIds ? "Из LTI-запроса Moodle (заблокирован)" : "Override для конкретной активности"
+              }
               list="mapping-link-list"
               autoComplete="off"
+              readOnly={Boolean(lockedLtiIds)}
+              className={lockedLtiIds ? "bg-gray-50 text-gray-500 cursor-not-allowed" : undefined}
             />
             <Input
               label="Код курса"

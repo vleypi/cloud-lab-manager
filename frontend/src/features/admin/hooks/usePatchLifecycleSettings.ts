@@ -15,6 +15,7 @@ export function usePatchLifecycleSettings() {
     onSuccess: (data) => {
       queryClient.setQueryData(ADMIN_QK.lifecycleSettings(), data);
       queryClient.invalidateQueries({ queryKey: CAPACITY_QK.all });
+      queryClient.invalidateQueries({ queryKey: ["admin", "lifecycle-settings", "history"] });
       toast.success("Настройки обновлены", "Применятся к следующим запускам");
     },
     onError: (error: ApiError) => {

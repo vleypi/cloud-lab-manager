@@ -34,3 +34,16 @@ export interface ILabLaunchPayload {
   owner_display_name?: string;
   attach_floating_ip?: boolean;
 }
+
+export interface IPendingLtiBinding {
+  id: string;
+  lti_context_id: string;
+  resource_link_id: string | null;
+  context_title: string | null;
+  resource_link_title: string | null;
+  last_user_external_id: string | null;
+  last_user_display_name: string | null;
+  seen_count: number;
+  last_seen_at: string;
+  created_at: string;
+}

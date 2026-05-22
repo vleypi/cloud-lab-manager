@@ -116,7 +116,7 @@ function CapacityVerdict({ allowed, reason }: { allowed: boolean; reason: string
     );
   }
   return (
-    <Badge tone="danger" size="md" pulse>
+    <Badge tone="danger" size="md">
       <AlertTriangleIcon size={12} />
       {reason ?? "Запуск заблокирован"}
     </Badge>

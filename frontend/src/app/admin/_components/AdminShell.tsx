@@ -15,7 +15,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
 function AdminBrandFooter() {
   return (
-    <div className="flex items-center gap-2.5 px-3">
+    <div className="flex items-center gap-2.5 px-2">
       <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-ki-blue to-ki-cyan flex items-center justify-center flex-shrink-0">
         <svg
           className="w-3.5 h-3.5 text-white"

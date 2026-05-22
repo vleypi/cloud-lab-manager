@@ -1,8 +1,5 @@
 import { axiosInstance } from "@/shared/config/axios.config";
 import {
-  IDiscoveredKiProject,
-  IPoolBulkAddPayload,
-  IPoolBulkAddResult,
   IPoolInventory,
   IPoolProject,
   IPoolProjectCreatePayload,
@@ -26,21 +23,6 @@ class PoolService {
 
   async deleteProject(projectId: string): Promise<void> {
     await axiosInstance.delete(`/pool/projects/${projectId}`);
-  }
-
-  async discoverProjects(domainId?: string): Promise<IDiscoveredKiProject[]> {
-    const response = await axiosInstance.get<IDiscoveredKiProject[]>("/pool/discover", {
-      params: domainId ? { domain_id: domainId } : undefined,
-    });
-    return response.data;
-  }
-
-  async bulkAddProjects(payload: IPoolBulkAddPayload): Promise<IPoolBulkAddResult> {
-    const response = await axiosInstance.post<IPoolBulkAddResult>(
-      "/pool/projects/bulk",
-      payload,
-    );
-    return response.data;
   }
 }
 

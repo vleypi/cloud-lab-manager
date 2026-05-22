@@ -12,7 +12,16 @@ export type TCheckKind =
   | "file_contains"
   | "command_exit_zero"
   | "command_output_matches"
+  | "os_release"
+  | "user_exists"
+  | "process_running"
+  | "http_endpoint"
+  | "dns_resolves"
+  | "command_output_compare"
   | string;
+
+export type TCheckSection = "os" | "software" | "network" | "other" | string;
+export type TCheckSeverity = "critical" | "warning" | "info" | string;
 
 export interface ICheckResult {
   id: string;
@@ -26,6 +35,8 @@ export interface ICheckResult {
   exit_code: number | null;
   duration_ms: number | null;
   spec: Record<string, unknown>;
+  section: TCheckSection;
+  severity: TCheckSeverity;
 }
 
 export interface ICheckRun {

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { ActionMenu, IActionMenuItem } from "@/shared/ui/ActionMenu";
 import { Badge } from "@/shared/ui/Badge";
 import { Button } from "@/shared/ui/Button";
 import { ConfirmDeleteModal } from "@/shared/ui/ConfirmDeleteModal";
@@ -144,7 +145,7 @@ export function CourseMappingsTable() {
             <div className="col-span-3 truncate">LMS context</div>
             <div className="col-span-2 truncate">Домен КИ</div>
             <div className="col-span-2 truncate">Inspector</div>
-            <div className="col-span-1 text-right truncate">Действия</div>
+            <div className="col-span-1 text-center truncate">Действия</div>
           </div>
 
           {filtered.map((mapping, idx) => (
@@ -200,25 +201,24 @@ export function CourseMappingsTable() {
                 )}
               </div>
 
-              <div className="col-span-1 flex items-center justify-end gap-1">
-                <button
-                  type="button"
-                  onClick={() => openEdit(mapping)}
-                  className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-ki-blue hover:bg-ki-blue-light transition"
-                  aria-label="Изменить"
-                  title="Изменить"
-                >
-                  <SettingsIcon size={14} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openDelete(mapping)}
-                  className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 transition"
-                  aria-label="Удалить"
-                  title="Удалить"
-                >
-                  <TrashIcon size={14} />
-                </button>
+              <div className="col-span-1 flex items-center justify-center">
+                <ActionMenu
+                  items={[
+                    {
+                      key: "edit",
+                      label: "Изменить",
+                      icon: <SettingsIcon size={14} />,
+                      onClick: () => openEdit(mapping),
+                    },
+                    {
+                      key: "delete",
+                      label: "Удалить",
+                      icon: <TrashIcon size={14} />,
+                      tone: "danger",
+                      onClick: () => openDelete(mapping),
+                    },
+                  ] satisfies IActionMenuItem[]}
+                />
               </div>
             </div>
           ))}

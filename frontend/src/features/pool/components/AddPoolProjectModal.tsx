@@ -43,14 +43,20 @@ export function AddPoolProjectModal({ onClose }: IAddPoolProjectModalProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="rounded-xl border border-amber-200/70 bg-amber-50/60 px-4 py-3 text-xs text-amber-900">
+        ID проекта и домена должны быть в формате <span className="font-mono">32-hex</span>{" "}
+        или <span className="font-mono">UUID</span> — посмотреть их можно в web-консоли КИ,
+        страница «Проекты». Короткие значения вроде «1» бэк отвергнет с понятной ошибкой.
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input
           label="ID проекта в КИ"
           required
           value={form.ki_project_id}
           onChange={(event) => update("ki_project_id", event.target.value)}
-          placeholder="abc123..."
-          hint="UUID проекта в Keystone"
+          placeholder="b35a1a3eaf0c4ad9b3b2ca4f7e269e31"
+          hint="UUID проекта в Keystone (без дефисов или с ними)"
         />
         <Input
           label="Имя проекта"
@@ -64,7 +70,8 @@ export function AddPoolProjectModal({ onClose }: IAddPoolProjectModalProps) {
           required
           value={form.ki_domain_id}
           onChange={(event) => update("ki_domain_id", event.target.value)}
-          placeholder="domain UUID"
+          placeholder="b78351983f1e45179ad3e63de1ec2e14"
+          hint="UUID домена в Keystone"
         />
         <Input
           label="Имя домена"
@@ -78,13 +85,14 @@ export function AddPoolProjectModal({ onClose }: IAddPoolProjectModalProps) {
           label="ID сети (опц.)"
           value={form.ki_network_id ?? ""}
           onChange={(event) => update("ki_network_id", event.target.value)}
-          placeholder="neutron network id"
+          placeholder="3f346280-f10d-46e1-8a66-3cf73d271246"
+          hint="Neutron network UUID (пусто — без выделенной сети)"
         />
         <Input
           label="ID роутера (опц.)"
           value={form.ki_router_id ?? ""}
           onChange={(event) => update("ki_router_id", event.target.value)}
-          placeholder="neutron router id"
+          placeholder="neutron router UUID"
         />
       </div>
 

@@ -3,6 +3,7 @@ import {
   ICourseMapping,
   ICourseMappingPayload,
   ILabLaunchPayload,
+  IPendingLtiBinding,
 } from "@/features/mappings/interfaces/mappings.interfaces";
 import { IStandLaunchAccepted } from "@/features/stands/interfaces/stands.interfaces";
 
@@ -32,6 +33,15 @@ class MappingsService {
       payload,
     );
     return response.data;
+  }
+
+  async listPendingBindings(): Promise<IPendingLtiBinding[]> {
+    const response = await axiosInstance.get<IPendingLtiBinding[]>("/lti/pending-bindings");
+    return response.data;
+  }
+
+  async dismissPendingBinding(bindingId: string): Promise<void> {
+    await axiosInstance.delete(`/lti/pending-bindings/${bindingId}`);
   }
 }
 

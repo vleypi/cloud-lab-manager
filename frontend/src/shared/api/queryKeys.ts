@@ -16,8 +16,6 @@ export const POOL_QK = {
   all: ["pool"] as const,
   inventory: () => ["pool", "inventory"] as const,
   projects: () => ["pool", "projects"] as const,
-  discover: (domainId?: string) =>
-    domainId ? (["pool", "discover", domainId] as const) : (["pool", "discover"] as const),
 } as const;
 
 export const CLOUD_QK = {
@@ -34,12 +32,25 @@ export const INSPECTOR_QK = {
 
 export const ADMIN_QK = {
   lifecycleSettings: () => ["admin", "lifecycle-settings"] as const,
+  lifecycleHistory: (key?: string, limit?: number, offset?: number) =>
+    ["admin", "lifecycle-settings", "history", key ?? null, limit ?? 50, offset ?? 0] as const,
+  capacityRejections: (params?: { owner?: string; since?: string; limit?: number; offset?: number }) =>
+    [
+      "admin",
+      "audit",
+      "capacity-rejections",
+      params?.owner ?? null,
+      params?.since ?? null,
+      params?.limit ?? 50,
+      params?.offset ?? 0,
+    ] as const,
 } as const;
 
 export const MAPPINGS_QK = {
   all: ["mappings"] as const,
   list: (ltiContextId?: string) =>
     ltiContextId ? (["mappings", "context", ltiContextId] as const) : (["mappings", "all"] as const),
+  pendingBindings: () => ["mappings", "pending-bindings"] as const,
 } as const;
 
 export const PLATFORMS_QK = {

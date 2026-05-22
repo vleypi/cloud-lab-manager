@@ -8,7 +8,6 @@ import { UserAvatar } from "@/shared/ui/UserAvatar";
 import { useMe } from "@/shared/identity/useMe";
 import { useSidebar } from "@/shared/layout/SidebarProvider";
 import { useSignOut } from "@/features/auth/hooks/useSignOut";
-import { USER_BADGE_CLASSES, USER_BADGE_LABEL } from "@/shared/identity/role.constant";
 
 export function AppBar() {
   const { toggle } = useSidebar();
@@ -67,8 +66,6 @@ function UserMenu() {
     return <div className="w-10 h-10 bg-gray-200 rounded-full animate-pulse" />;
   }
 
-  const badgeKind = user.isSuperAdmin ? "SUPER_ADMIN" : "REGULAR";
-
   return (
     <div className="relative" ref={wrapRef}>
       <button
@@ -90,14 +87,7 @@ function UserMenu() {
             <UserAvatar user={user} size="sm" />
             <div className="flex-1 min-w-0">
               <div className="font-medium text-sm text-ki-dark truncate">{user.displayName}</div>
-              <div className="text-xs text-gray-400 truncate font-mono">{user.externalId}</div>
             </div>
-          </div>
-
-          <div className="px-2 mb-2">
-            <span className={`text-[10px] px-1.5 py-0.5 rounded ${USER_BADGE_CLASSES[badgeKind]}`}>
-              {USER_BADGE_LABEL[badgeKind]}
-            </span>
           </div>
 
           <div className="h-px bg-gray-100 my-2" />

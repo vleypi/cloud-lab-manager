@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { ActionMenu, IActionMenuItem } from "@/shared/ui/ActionMenu";
 import { Badge } from "@/shared/ui/Badge";
 import { Button } from "@/shared/ui/Button";
 import { ConfirmDeleteModal } from "@/shared/ui/ConfirmDeleteModal";
@@ -9,7 +10,7 @@ import { EmptyState } from "@/shared/ui/EmptyState";
 import { ErrorBox } from "@/shared/ui/ErrorBox";
 import { SearchBox } from "@/shared/ui/SearchBox";
 import { SkeletonTable } from "@/shared/ui/Skeleton";
-import { LayersIcon, PlusIcon, TrashIcon, UsersIcon } from "@/shared/icons/index-icons";
+import { LayersIcon, PlusIcon, TrashIcon } from "@/shared/icons/index-icons";
 import { formatDateTime } from "@/shared/utils/format.util";
 import { useModal } from "@/shared/modal/hooks/useModal";
 
@@ -18,7 +19,6 @@ import { useDeletePoolProject } from "@/features/pool/hooks/useDeletePoolProject
 import { POOL_STATUS_LABELS, POOL_STATUS_TONE } from "@/features/pool/constants/pool.constants";
 import { IPoolProject } from "@/features/pool/interfaces/pool.interfaces";
 import { AddPoolProjectModal } from "@/features/pool/components/AddPoolProjectModal";
-import { DiscoverPoolProjectsModal } from "@/features/pool/components/DiscoverPoolProjectsModal";
 
 interface IPoolProjectsTableProps {
   className?: string;
@@ -35,14 +35,6 @@ export function PoolProjectsTable({ className }: IPoolProjectsTableProps) {
     openModal("Добавить проект КИ в пул", <AddPoolProjectModal onClose={closeModal} />, {
       size: "lg",
     });
-  };
-
-  const handleDiscoverClick = () => {
-    openModal(
-      "Найти проекты в КИ и добавить пачкой",
-      <DiscoverPoolProjectsModal onClose={closeModal} />,
-      { size: "xl" },
-    );
   };
 
   const handleDeleteClick = (project: IPoolProject) => {
@@ -92,13 +84,6 @@ export function PoolProjectsTable({ className }: IPoolProjectsTableProps) {
           className="w-72"
         />
         <div className="flex items-center gap-2">
-          {/* <Button
-            variant="outline"
-            iconLeft={<UsersIcon size={16} />}
-            onClick={handleDiscoverClick}
-          >
-            Найти в КИ
-          </Button> */}
           <Button iconLeft={<PlusIcon size={16} />} onClick={handleAddClick}>
             Добавить проект
           </Button>
@@ -141,7 +126,7 @@ export function PoolProjectsTable({ className }: IPoolProjectsTableProps) {
             <div className="col-span-3 truncate">Домен</div>
             <div className="col-span-2 truncate">Статус</div>
             <div className="col-span-2 truncate">Освободился</div>
-            <div className="col-span-1 text-right truncate">Действия</div>
+            <div className="col-span-1 text-center truncate">Действия</div>
           </div>
 
           {filtered.map((project, idx) => (
@@ -190,20 +175,20 @@ function ProjectRow({ project, isLast, onDeleteClick }: IProjectRowProps) {
         {project.last_released_at ? formatDateTime(project.last_released_at) : "—"}
       </div>
 
-      <div className="col-span-1 flex items-center justify-end">
-        {canDelete ? (
-          <button
-            type="button"
-            onClick={() => onDeleteClick(project)}
-            className="w-9 h-9 inline-flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50 transition"
-            aria-label="Удалить проект"
-            title="Удалить проект"
-          >
-            <TrashIcon size={16} />
-          </button>
-        ) : (
-          <span className="text-[11px] text-gray-300">занят</span>
-        )}
+      <div className="col-span-1 flex items-center justify-center">
+        <ActionMenu
+          emptyHint="занят"
+          items={[
+            {
+              key: "delete",
+              label: "Удалить проект",
+              icon: <TrashIcon size={14} />,
+              tone: "danger",
+              hidden: !canDelete,
+              onClick: () => onDeleteClick(project),
+            },
+          ] satisfies IActionMenuItem[]}
+        />
       </div>
     </div>
   );

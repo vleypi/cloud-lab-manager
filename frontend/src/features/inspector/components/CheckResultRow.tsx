@@ -9,8 +9,10 @@ import { CodeBlock } from "@/shared/ui/CodeBlock";
 
 import {
   describeKind,
+  describeSeverity,
   RESULT_STATUS_LABELS,
   RESULT_STATUS_TONE,
+  SEVERITY_TONE,
 } from "@/features/inspector/constants/inspector.constants";
 import { ICheckResult } from "@/features/inspector/interfaces/inspector.interfaces";
 
@@ -59,7 +61,14 @@ export function CheckResultRow({ result }: ICheckResultRowProps) {
           </div>
         </div>
 
-        <Badge tone={RESULT_STATUS_TONE[result.status]}>{RESULT_STATUS_LABELS[result.status]}</Badge>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {result.severity && result.severity !== "critical" && (
+            <Badge tone={SEVERITY_TONE[result.severity] ?? "neutral"} size="sm">
+              {describeSeverity(result.severity)}
+            </Badge>
+          )}
+          <Badge tone={RESULT_STATUS_TONE[result.status]}>{RESULT_STATUS_LABELS[result.status]}</Badge>
+        </div>
       </button>
 
       {hasDetails && isOpen && (

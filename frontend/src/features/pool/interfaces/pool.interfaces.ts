@@ -32,21 +32,3 @@ export interface IPoolInventory {
   disabled: number;
 }
 
-export interface IDiscoveredKiProject {
-  ki_project_id: string;
-  ki_project_name: string;
-  ki_domain_id: string;
-  ki_domain_name: string;
-  ki_network_id: string | null;
-  ki_router_id: string | null;
-  already_in_pool: boolean;
-}
-
-export interface IPoolBulkAddPayload {
-  projects: IPoolProjectCreatePayload[];
-}
-
-export interface IPoolBulkAddResult {
-  added: IPoolProject[];
-  skipped: string[];
-}

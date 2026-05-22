@@ -18,7 +18,40 @@ interface IFormState {
   capacityThreshold: string;
 }
 
+interface IFormErrors {
+  defaultTtlHours?: string;
+  freezeTtlHours?: string;
+  capacityThreshold?: string;
+}
+
 const HOUR = 3600;
+const MAX_TTL_HOURS = (30 * 24 * 3600) / HOUR;
+const MIN_TTL_HOURS_FRAC = 1 / 60;
+
+function parseNumber(raw: string): number | null {
+  const normalized = raw.replace(",", ".").trim();
+  if (normalized === "") return null;
+  const value = Number(normalized);
+  if (!Number.isFinite(value)) return null;
+  return value;
+}
+
+function validateTtlHours(raw: string, label: string): string | undefined {
+  const value = parseNumber(raw);
+  if (value === null) return `${label}: введите число`;
+  if (value <= 0) return `${label}: значение должно быть больше нуля`;
+  if (value < MIN_TTL_HOURS_FRAC) return `${label}: минимум 1 минута`;
+  if (value > MAX_TTL_HOURS) return `${label}: не больше ${MAX_TTL_HOURS} часов (30 дней)`;
+  return undefined;
+}
+
+function validateThreshold(raw: string): string | undefined {
+  const value = parseNumber(raw);
+  if (value === null) return "Порог: введите число";
+  if (value <= 0) return "Порог: значение должно быть больше нуля";
+  if (value > 100) return "Порог: не больше 100%";
+  return undefined;
+}
 
 export function LifecycleSettingsForm() {
   const { data, isLoading, error } = useLifecycleSettings();
@@ -40,6 +73,19 @@ export function LifecycleSettingsForm() {
       });
     }
   }, [data]);
+
+  const errors: IFormErrors = useMemo(
+    () => ({
+      defaultTtlHours: validateTtlHours(form.defaultTtlHours, "TTL стенда"),
+      freezeTtlHours: validateTtlHours(form.freezeTtlHours, "TTL заморозки"),
+      capacityThreshold: validateThreshold(form.capacityThreshold),
+    }),
+    [form],
+  );
+
+  const hasErrors = Boolean(
+    errors.defaultTtlHours || errors.freezeTtlHours || errors.capacityThreshold,
+  );
 
   const isDirty = useMemo(() => {
     if (!data) return false;
@@ -75,13 +121,15 @@ export function LifecycleSettingsForm() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const defaultTtlSeconds = Math.round(Number(form.defaultTtlHours.replace(",", ".")) * HOUR);
-    const freezeTtlSeconds = Math.round(Number(form.freezeTtlHours.replace(",", ".")) * HOUR);
-    const threshold = Number(form.capacityThreshold.replace(",", "."));
+    if (hasErrors) return;
 
-    if (Number.isNaN(defaultTtlSeconds) || Number.isNaN(freezeTtlSeconds) || Number.isNaN(threshold)) {
-      return;
-    }
+    const defaultTtlSeconds = Math.round(
+      Number(form.defaultTtlHours.replace(",", ".")) * HOUR,
+    );
+    const freezeTtlSeconds = Math.round(
+      Number(form.freezeTtlHours.replace(",", ".")) * HOUR,
+    );
+    const threshold = Number(form.capacityThreshold.replace(",", "."));
 
     mutate({
       stand_default_ttl_seconds: defaultTtlSeconds,
@@ -108,6 +156,7 @@ export function LifecycleSettingsForm() {
           description="Через сколько часов после старта стенд автоматически удаляется"
           unit="ч"
           value={form.defaultTtlHours}
+          error={errors.defaultTtlHours}
           onChange={(value) => setForm((prev) => ({ ...prev, defaultTtlHours: value }))}
         />
 
@@ -116,6 +165,7 @@ export function LifecycleSettingsForm() {
           description="Сколько часов хранить замороженный стенд для разбора преподавателем"
           unit="ч"
           value={form.freezeTtlHours}
+          error={errors.freezeTtlHours}
           onChange={(value) => setForm((prev) => ({ ...prev, freezeTtlHours: value }))}
         />
 
@@ -124,6 +174,7 @@ export function LifecycleSettingsForm() {
           description="Порог утилизации кластера КИ, выше которого запуск новых стендов блокируется"
           unit="%"
           value={form.capacityThreshold}
+          error={errors.capacityThreshold}
           onChange={(value) => setForm((prev) => ({ ...prev, capacityThreshold: value }))}
         />
       </div>
@@ -143,7 +194,7 @@ export function LifecycleSettingsForm() {
         >
           Сбросить
         </Button>
-        <Button type="submit" isLoading={isPending} disabled={!isDirty}>
+        <Button type="submit" isLoading={isPending} disabled={!isDirty || hasErrors}>
           Сохранить изменения
         </Button>
       </div>
@@ -156,6 +207,7 @@ interface ISettingRowProps {
   description: string;
   unit: string;
   value: string;
+  error?: string;
   onChange: (value: string) => void;
 }
 
@@ -164,26 +216,30 @@ function SettingRow({
   description,
   unit,
   value,
+  error,
   onChange,
 }: ISettingRowProps) {
   return (
-    <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-[1fr_136px] gap-3 sm:gap-x-3 items-center">
+    <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-[1fr_180px] gap-3 sm:gap-x-3 items-start">
       <div className="min-w-0">
         <h3 className="text-sm font-semibold text-ki-dark leading-tight">{title}</h3>
         <p className="mt-1 text-xs text-gray-500 leading-relaxed">{description}</p>
       </div>
 
-      <div className="flex items-center gap-2 justify-end">
-        <Input
-          type="text"
-          inputMode="decimal"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          fullWidth={false}
-          style={{ width: "96px" }}
-          className="text-sm font-semibold text-center tabular-nums"
-        />
-        <span className="text-xs text-gray-500 w-3 text-left">{unit}</span>
+      <div className="flex flex-col items-end gap-1">
+        <div className="flex items-center gap-2 justify-end">
+          <Input
+            type="text"
+            inputMode="decimal"
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            error={error}
+            fullWidth={false}
+            style={{ width: "120px" }}
+            className="text-sm font-semibold text-center tabular-nums"
+          />
+          <span className="text-xs text-gray-500 w-3 text-left">{unit}</span>
+        </div>
       </div>
     </div>
   );

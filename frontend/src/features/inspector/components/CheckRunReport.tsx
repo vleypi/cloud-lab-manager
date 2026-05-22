@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { ErrorBox } from "@/shared/ui/ErrorBox";
 import { Badge } from "@/shared/ui/Badge";
@@ -7,9 +9,14 @@ import { FileIcon } from "@/shared/icons/index-icons";
 import { Skeleton, SkeletonLine } from "@/shared/ui/Skeleton";
 import { formatDateTime } from "@/shared/utils/format.util";
 
-import { CheckResultRow } from "@/features/inspector/components/CheckResultRow";
 import { CheckRunBadge } from "@/features/inspector/components/CheckRunBadge";
+import { CheckSectionGroup } from "@/features/inspector/components/CheckSectionGroup";
+import { SECTION_ORDER } from "@/features/inspector/constants/inspector.constants";
 import { useCheckRun } from "@/features/inspector/hooks/useCheckRun";
+import {
+  ICheckResult,
+  TCheckSection,
+} from "@/features/inspector/interfaces/inspector.interfaces";
 
 interface ICheckRunReportProps {
   runId: string | null;
@@ -17,6 +24,29 @@ interface ICheckRunReportProps {
 
 export function CheckRunReport({ runId }: ICheckRunReportProps) {
   const { data: run, isLoading, error } = useCheckRun(runId);
+
+  const groupedResults = useMemo(() => {
+    if (!run) return [] as { section: TCheckSection; results: ICheckResult[] }[];
+    const buckets = new Map<TCheckSection, ICheckResult[]>();
+    for (const r of run.results) {
+      const key: TCheckSection = (r.section as TCheckSection) || "other";
+      const arr = buckets.get(key) ?? [];
+      arr.push(r);
+      buckets.set(key, arr);
+    }
+    const ordered: { section: TCheckSection; results: ICheckResult[] }[] = [];
+    for (const section of SECTION_ORDER) {
+      const items = buckets.get(section);
+      if (items && items.length > 0) {
+        ordered.push({ section, results: items });
+        buckets.delete(section);
+      }
+    }
+    for (const [section, results] of buckets.entries()) {
+      ordered.push({ section, results });
+    }
+    return ordered;
+  }, [run]);
 
   if (!runId) {
     return (
@@ -91,9 +121,9 @@ export function CheckRunReport({ runId }: ICheckRunReportProps) {
           description="Проверки ещё не выполнялись — статус: ожидание"
         />
       ) : (
-        <div className="space-y-2">
-          {run.results.map((result) => (
-            <CheckResultRow key={result.id} result={result} />
+        <div className="space-y-3">
+          {groupedResults.map(({ section, results }) => (
+            <CheckSectionGroup key={section} section={section} results={results} />
           ))}
         </div>
       )}

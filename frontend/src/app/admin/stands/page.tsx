@@ -157,7 +157,7 @@ export default function AdminAllStandsPage() {
             <div className="col-span-2 truncate">Проект КИ</div>
             <div className="col-span-2 truncate">Статус</div>
             <div className="col-span-1 truncate">Обновлён</div>
-            <div className="col-span-2 text-right truncate">Действия</div>
+            <div className="col-span-2 text-center truncate">Действия</div>
           </div>
 
           {filtered.map((stand, idx) => (
@@ -229,7 +229,7 @@ function StandRow({ stand, isLast }: { stand: IStand; isLast: boolean }) {
         {formatRelative(stand.updated_at)}
       </div>
 
-      <div className="col-span-2 flex items-center justify-end">
+      <div className="col-span-2 flex items-center justify-center">
         <AdminStandRowActions stand={stand} />
       </div>
     </div>

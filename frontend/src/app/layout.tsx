@@ -37,6 +37,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           theme="light"
           expand
           visibleToasts={3}
+          icons={{
+            success: null,
+            info: null,
+            warning: null,
+            error: null,
+            loading: null,
+          }}
           toastOptions={{
             style: {
               borderRadius: "12px",
