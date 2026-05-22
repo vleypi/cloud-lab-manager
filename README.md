@@ -20,122 +20,97 @@
 
 ## Этапы ТЗ и реализация
 
-### Этап 1. Ядро системы, управление пулом проектов и API КИ
+### Этап 1. Ядро, пул проектов и контроль ёмкости
 
-**Принцип «один студент = один индивидуальный проект».**
+Принцип «один студент = один индивидуальный проект» вынесен на уровень БД: частичный уникальный индекс `uq_stands_owner_active` не даст создать второй активный стенд тому же владельцу.
 
-* `backend/app/providers/openstack.py` - `OpenStackProvider` поверх openstacksdk, реализующий абстрактный `CloudProvider`. Использует системный credential для администрирования и отдельные коннекты per-project. Включает legacy TLS adapter для старого Keystone КИ, экспоненциальные ретраи (`tenacity`) и прогрев авторизации.
-* `backend/app/services/pool_manager.py` - `PoolManager.allocate()` атомарно блокирует свободный проект через `SELECT … FOR UPDATE SKIP LOCKED`, проверяет, что у пользователя нет другого активного стенда, и возвращает запись `PoolProject`. После очистки стенд возвращает проект в статус `FREE`.
-* Уникальный частичный индекс `uq_stands_owner_active` в БД гарантирует «один активный стенд на пользователя» на уровне PostgreSQL.
-* Пул наполняется через YAML-сид `config/pool.yaml` (валидатор `scripts/validate-pool.py`), API `POST /api/v1/pool/projects/bulk` или авто-обнаружение `GET /api/v1/pool/discover` (читает проекты из КИ через Keystone admin API).
-* `backend/app/core/cloud_init.py` собирает cloud-init `user-data`, который инжектит публичный SSH-ключ inspector'а внутрь ВМ. Cloud-init настраивает пользователя `inspector` с ограниченным sudo-списком (только команды, нужные для проверок).
-* При запуске стенда `Stand.provision` (Celery-задача) генерирует одноразовый keypair через `provider.create_keypair()` (нативные ключи КИ), сохраняет private key в Redis с TTL и удаляет keypair при destroy. Статических паролей в коде нет.
-* Корректная обработка крайних случаев: пустой пул `PoolExhaustedError 409`, дубликат `AlreadyAllocatedError 409`, тайм-аут провижена через `provision_stall_seconds` с авто-переводом в `FAILED`.
+**Пул проектов.** `PoolManager.allocate()` в `backend/app/services/pool_manager.py` атомарно берёт свободный проект через `SELECT … FOR UPDATE SKIP LOCKED`, проверяет отсутствие активного стенда и возвращает `PoolProject`. После destroy стенд возвращает проект в `FREE`. Пул наполняется через `config/pool.yaml` (валидатор `scripts/validate-pool.py`), bulk-API `POST /api/v1/pool/projects/bulk` либо авто-обнаружение `GET /api/v1/pool/discover`, которое читает домены и проекты из КИ через Keystone admin API. На пустой пул сервис отвечает `PoolExhaustedError 409`, на дубликат - `AlreadyAllocatedError 409`.
 
-### Этап 1. Контроль ёмкости кластера
+**КИ как провайдер.** `OpenStackProvider` в `backend/app/providers/openstack.py` реализует абстрактный `CloudProvider` поверх `openstacksdk`. Для администрирования открывается отдельный системный коннект, для развёртывания ВМ - индивидуальный per-project. Старый Keystone КИ требует legacy TLS adapter (отключение `SECLEVEL`, ручной `requests.Session`), это решено внутри провайдера. Все вызовы обёрнуты в `tenacity.retry` с экспоненциальным backoff, перед длинными цепочками вызовов выполняется прогрев авторизации.
 
-**Жёсткий предиктивный контроль с порогом 90% (`CAPACITY_THRESHOLD_PERCENT`).**
+**Безопасный доступ.** Никаких статических паролей: `Stand.provision` (Celery-задача в `backend/app/tasks/stands.py`) запрашивает keypair у Nova внутри проекта через `provider.create_keypair()`, кладёт приватный ключ в Redis с TTL `credentials_ttl_seconds` и удаляет keypair при destroy. Публичный ключ inspector'а инжектится в ВМ через cloud-init (`backend/app/core/cloud_init.py`), причём sudo для пользователя `inspector` ограничен whitelist'ом команд под проверки.
 
-* `backend/app/services/capacity_checker.py` - `CapacityChecker`:
-  * Снимает текущую утилизацию через `nova /os-hypervisors/statistics`. Если эндпойнт закрыт правами (что бывает в КИ), деградирует на `os-quota-sets` системного проекта + Cinder usage.
-  * Считает `current_max_percent = max(vcpus%, ram%, disk%)`. При наличии `flavor_id` запрашиваемой ВМ считает **предиктивный** `projected_max_percent = max((used+req)/total ...)`.
-  * Если `projected ≥ threshold`, бросает `CapacityExceededError 503` с понятным сообщением для UI.
-  * Кеш утилизации `capacity_cache_ttl_seconds` с принудительной инвалидацией в «горячей зоне» (когда `current_max` подходит к порогу ближе чем на 10 п. п.), чтобы не выдать allow на устаревших данных.
-* `backend/app/services/capacity_audit.py` фиксирует каждый отказ в таблице `capacity_rejections` (кто, когда, какой flavor, какая утилизация). Админ читает историю через `GET /api/v1/admin/audit/capacity-rejections`.
-* На фронтенде `features/capacity` показывает живую utilization-карту, на странице обзора `/admin` визуализируется поведение пула и КИ.
+**Capacity guard.** `CapacityChecker` в `backend/app/services/capacity_checker.py`:
+
+* первым делом тянет утилизацию через `nova /os-hypervisors/statistics`; если права закрыты (типичная история в КИ), деградирует на `os-quota-sets` системного проекта плюс Cinder usage;
+* считает `current_max_percent = max(vcpus%, ram%, disk%)`, а зная `flavor_id` запрашиваемой ВМ - **предиктивный** `projected_max_percent = max((used + req) / total ...)`;
+* если `projected ≥ threshold`, бросает `CapacityExceededError 503` с детальным телом для UI;
+* кеширует снимок на `capacity_cache_ttl_seconds`, но в «горячей зоне» (когда текущая утилизация подобралась к порогу ближе чем на 10 п. п.) принудительно перестраивает кеш, чтобы не выдать allow на устаревших данных.
+
+Любой отказ пишется в таблицу `capacity_rejections` через `CapacityAuditRecorder` (кто, когда, какой flavor, что было с кластером в момент отказа). Админ читает историю на `GET /api/v1/admin/audit/capacity-rejections`. На фронте `features/capacity/CapacityCard` показывает живую utilization-карту в `/admin`. Stand-сервис также страхуется от зависания: `provision_stall_seconds` для проваленного провижена и авто-перевод в `FAILED` через sweep-таску.
 
 ### Этап 2. Асинхронный жизненный цикл и тайм-ауты
 
-**Все долгие операции (provision, destroy, sweep, check) асинхронные через Celery.**
+Все долгие операции (provision, destroy, sweep, проверка) отделены от HTTP-запросов и крутятся в Celery. Брокер и result-backend - Redis. В `backend/app/celery_app.py` выставлены `task_acks_late=True`, `worker_prefetch_multiplier=1` (равномерное распределение нагрузки) и авто-ретраи `provision` на `CloudProviderError / ConnectionError / TimeoutError` с экспоненциальным backoff до 3 попыток, у `destroy` - до 5.
 
-* `backend/app/celery_app.py` поднимает Celery с broker и backend в Redis. `task_acks_late=True`, `worker_prefetch_multiplier=1`, авто-ретраи с экспоненциальным backoff.
-* `backend/app/tasks/stands.py`:
-  * `stands.provision` - keypair, server create, attach floating IP, переход в `READY` с расчётом `expires_at`. Обрабатывает повторный запуск (idempotent по `ki_server_id`/`ki_keypair_name`).
-  * `stands.destroy` - удаление ВМ + keypair, перевод проекта в `FREE`, очистка credentials в Redis.
-  * `stands.sweep_expired` - Celery-beat задача (каждые `sweep_interval_seconds` секунд) собирает истёкшие стенды и зависшие в `ALLOCATING`/`DEPLOYING` дольше `provision_stall_seconds`, переводит их в `FAILED` или ставит destroy.
-* `backend/app/tasks/inspector.py` - асинхронные SSH-проверки.
+В `backend/app/tasks/stands.py` живут три задачи: `stands.provision` идёт по цепочке «keypair → create_server → attach_floating_ip → READY» и идемпотентен по `ki_server_id` + `ki_keypair_name`, чтобы повторный запуск после краша не дублировал ресурсы; `stands.destroy` удаляет ВМ и keypair, возвращает проект в `FREE` и стирает credentials из Redis; `stands.sweep_expired` бьёт по двум целям сразу - истёкшие стенды (`expires_at < now`) переводит на destroy, а зависшие в `ALLOCATING`/`DEPLOYING` дольше `provision_stall_seconds` помечает `FAILED`. Запускается по Celery-beat каждые `sweep_interval_seconds`.
 
-**Машина состояний** (`backend/app/core/state_machine.py`):
+**Машина состояний** живёт в `backend/app/core/state_machine.py`. Допустимые переходы:
 
-`ALLOCATING → DEPLOYING → READY → FROZEN ⇄ READY → CLEANING → DESTROYED`, с переходами в `FAILED` из любого «активного» состояния. `assert_transition()` бросает `InvalidTransitionError 409`, если перехода не существует. Каждый переход журналируется через structlog.
+`ALLOCATING → DEPLOYING → READY → FROZEN ⇄ READY → CLEANING → DESTROYED`, плюс переход в `FAILED` из любого активного состояния. На каждом шаге `assert_transition()` сверяется с whitelist'ом и при попытке невалидного перехода бросает `InvalidTransitionError 409`. Каждый переход журналируется в structlog с прежним и новым статусом.
 
-**Гибкое управление временем жизни** (`backend/app/services/lifecycle_service.py`):
+**Гибкое управление временем жизни** реализовано в `LifecycleService`:
 
-* `freeze` - переводит стенд `READY → FROZEN`, ставит `expires_at = now + freeze_ttl`.
-* `report_incident` - то же самое, но с описанием инцидента, флагом `incident_reported` и сохранением мета-данных в `extra` стенда. UI на странице студента подсвечивает такие стенды красным баджиком, в админке появляется отдельный фильтр «Инциденты».
-* `unfreeze`, `extend` - обратные операции с настраиваемым TTL.
-* `RuntimeSetting` + `LifecycleSettings` - три глобальных параметра (`stand_default_ttl_seconds`, `stand_freeze_ttl_seconds`, `capacity_threshold_percent`) хранятся в БД и доступны на запись для супер-админа через `PATCH /api/v1/admin/lifecycle-settings`. Кеш 5 секунд, инвалидируется при апдейте. Каждое изменение пишется в `lifecycle_setting_changes` (история, кто и когда менял).
-* UI: страница `/admin/settings` с формой управления лимитами и панелью истории изменений (`features/admin/components/LifecycleHistoryPanel`).
+* `freeze(stand_id, reason)` переводит `READY → FROZEN`, продлевает `expires_at` на `freeze_ttl` и обновляет TTL у credentials в Redis;
+* `report_incident(stand_id, description, reported_by)` делает то же самое, но дописывает в `extra` стенда флаг `incident_reported`, метку времени и описание - именно по этому флагу UI студента подсвечивает стенд красным значком, а в админке появляется отдельная вкладка «Инциденты»;
+* `unfreeze` и `extend` - обратные операции с произвольным TTL.
 
-### Этап 3. SSH-движок автоматической проверки конфигураций
+**Hot-reload лимитов.** Три глобальных параметра (`stand_default_ttl_seconds`, `stand_freeze_ttl_seconds`, `capacity_threshold_percent`) хранятся в таблице `runtime_settings`, читаются через `LifecycleSettings` с кешем на 5 секунд и пишутся через `PATCH /api/v1/admin/lifecycle-settings`. Каждое изменение порождает запись в `lifecycle_setting_changes` (кто, когда, со старого значения на новое). Эти изменения мгновенно влияют на новых стендов без рестарта - sweep-таска, provision-таска и capacity-checker читают актуальные значения при каждом запуске. Преподавателю всё это доступно из UI на странице `/admin/settings` (форма + панель истории).
 
-**Безагентный движок, расширяемый через YAML-шаблоны.**
+### Этап 3. Безагентный движок SSH-проверок
 
-* `backend/app/inspector/ssh.py` - подключение к ВМ через `asyncssh` ed25519-ключом (`secrets/inspector_ed25519`). Ключ генерируется один раз в `entrypoint.sh`, публичный ключ инжектится в каждую новую ВМ через cloud-init.
-* `backend/app/inspector/types.py` - 13 типов проверок (`CheckKind`):
-  * `package_installed`, `systemd_active`, `port_listening`, `file_exists`, `file_contains`, `command_exit_zero`, `command_output_matches`, `os_release`, `user_exists`, `process_running`, `http_endpoint`, `dns_resolves`, `command_output_compare`.
-  * Каждая проверка имеет `section` (`os` / `software` / `network` / `other`) и `severity` (`critical` / `warning` / `info`). Warning-провалы не валят весь чек-ран целиком.
-* `backend/app/inspector/loader.py` - Pydantic-валидация YAML-шаблонов с понятными ошибками (по индексу шага, по полям, с разрешённым списком типов).
-* `backend/app/inspector/checks.py` - registry хендлеров: для каждого `CheckKind` отдельная async-функция, формирующая SSH-команду, парсящая stdout/stderr/exit_code и возвращающая `CheckOutcome`.
-* `backend/app/inspector/runner.py` - обходит шаги шаблона, ловит ошибки SSH-соединения, собирает `RunReport` со счётчиками `passed/failed/errored`.
-* `backend/app/tasks/inspector.py` (`inspector.run`) - Celery-таска: пересоздаёт сессию, прогоняет шаблон, сохраняет результаты в `check_runs` и `check_results` с stdout/stderr/exit_code/duration по каждому шагу.
-* Шаблоны лежат в `config/check_templates/`:
-  * `lab-01.yaml` - базовая проверка ОС;
-  * `lab-02-nginx.yaml` - установка nginx, reverse proxy на 127.0.0.1:8080, gzip;
-  * `lab-03-postgres.yaml` - PostgreSQL и его конфигурация;
-  * `lab-04-network.yaml` - сетевые проверки.
-* Frontend (`features/inspector`): `InspectorPanel` запускает шаблон, `CheckRunReport` показывает детальный лог каждого шага со статусом, секцией и полным stdout/stderr.
+Безагентное подключение к ВМ ученика делается из контейнера worker'а: `asyncssh` стучится по ed25519-ключу `secrets/inspector_ed25519`. Сам ключ генерируется один раз в `entrypoint.sh`, его публичная часть инжектится в каждую новую ВМ через cloud-init под пользователя `inspector` с урезанным sudo. Никаких паролей и общих ключей.
+
+Тестовый движок построен вокруг 13 типов проверок (`CheckKind` в `backend/app/inspector/types.py`):
+
+`package_installed`, `systemd_active`, `port_listening`, `file_exists`, `file_contains`, `command_exit_zero`, `command_output_matches`, `os_release`, `user_exists`, `process_running`, `http_endpoint`, `dns_resolves`, `command_output_compare`.
+
+У каждой проверки два дополнительных поля: `section` (`os` / `software` / `network` / `other`) для группировки в UI и `severity` (`critical` / `warning` / `info`). Только провал critical-проверки роняет общий результат - warning'и видны, но не валят весь чек-ран. Это нужно, чтобы курс мог иметь, например, обязательный `port_listening: 80` и рекомендованный `file_contains: gzip on`.
+
+YAML-шаблоны лежат в `config/check_templates/`. Сейчас их четыре: `lab-01.yaml` (базовая ОС), `lab-02-nginx.yaml` (nginx как reverse proxy на 127.0.0.1:8080 + gzip), `lab-03-postgres.yaml` (PostgreSQL и конфигурация), `lab-04-network.yaml` (сетевые проверки). При загрузке шаблона `inspector/loader.py` валидирует каждую запись через отдельную Pydantic-модель и кидает `TemplateError 422` с указанием индекса шага и поля, где ошибка - преподаватель сразу видит, что именно неправильно в его YAML.
+
+Сам прогон устроен так: `InspectorService.schedule` создаёт `CheckRun` в БД и кидает Celery-таску `inspector.run`. Таска грузит шаблон, открывает SSH-сессию через `inspector/runner.py`, по очереди вызывает хендлеры из `inspector/checks.py` (по одному на `CheckKind`), парсит stdout/stderr/exit_code и сохраняет `CheckResult` для каждого шага вместе с длительностью. Если соединение упало - все оставшиеся шаги получают статус `error` с понятным сообщением. На фронте `features/inspector/InspectorPanel` запускает шаблон, а `CheckRunReport` показывает результат с детализацией по каждой проверке и полным stdout/stderr.
 
 ### Этап 4. Интеграция с LMS Moodle и маппинг пользователей
 
-**Полноценный LTI 1.3 + REST fallback.**
+Реализован полноценный LTI 1.3 со всеми обязательными элементами OIDC-инициации и валидации `id_token`, плюс простой REST-эндпойнт как резервный канал для тех, кто не готов поднимать LTI.
 
-* OIDC-инициация: `GET/POST /api/v1/lti/login` (`backend/app/api/v1/endpoints/lti.py` + `services/lti_service.py`):
-  * Платформа отправляет `iss`, `login_hint`, `target_link_uri`. Сервис находит `LtiPlatform` по issuer + client_id, генерирует криптостойкие `state` и `nonce`, кладёт `LaunchState` в Redis на 5 минут (`lti:launch-state:<state>`) и редиректит на `auth_login_url` платформы.
-* Получение и валидация `id_token` (`backend/app/lti/validator.py`):
-  * Скачивает JWKS платформы (`backend/app/lti/jwks.py`, кеш 10 минут).
-  * Проверяет подпись (RS256/384/512), `iss`, `aud`, `exp`, `iat`, `nonce`, `version=1.3.0`, `message_type=LtiResourceLinkRequest`, `deployment_id` против allowlist платформы.
-  * Парсит claims: `sub`, `email`, `name`, `roles`, `context.id/title`, `resource_link.id/title`, `custom.*`.
-* Маппинг (`CourseMapping`):
-  * Ключ `(lti_context_id, resource_link_id)` (resource_link опционально). При нескольких совпадениях берётся самый свежий, в логе пишется warning.
-  * Один маппинг указывает на `ki_domain_name` (фильтр пула), `image_id`, `flavor_id`, `lab_code`, `inspector_template`. Поля custom в LTI могут переопределять `image`/`flavor`/`lab_code`.
-  * Если маппинга нет, запрос фиксируется в `PendingLtiBinding` (preview контекста, последний пользователь, счётчик попыток) и студенту возвращается понятная 422-ошибка. Преподаватель видит эти запросы в админке `/admin/mappings` и создаёт маппинг одним кликом.
-* Идентификация пользователя: `owner_external_id = "<platform.id>:<sub>"`. Запись о пользователе кэшируется в `LtiUser` (журнал входов с email, name, последним курсом и числом сессий, доступен в админке).
-* Идемпотентный запуск: если у владельца уже есть активный стенд, повторный launch не создаёт новый, а возвращает редирект на существующий (`reused=True`).
-* `GET /api/v1/lti/jwks.json` отдаёт публичный ключ инструмента (RS256), `GET /api/v1/lti/config.json` - JSON-дескриптор для регистрации в Moodle.
-* REST fallback: `POST /api/v1/integrations/moodle/launch` для интеграции через Moodle Web Services без полноценного LTI. Также фиксирует unmapped-запросы в `PendingLtiBinding`.
-* После успешного launch backend редиректит студента на frontend-страницу `/lti/launching/<stand_id>`, где живой статус провижена через polling `useStand`.
+**Login flow.** На `GET/POST /api/v1/lti/login` (см. `backend/app/api/v1/endpoints/lti.py`) платформа отправляет `iss`, `login_hint`, `target_link_uri`. Сервис ищет `LtiPlatform` по `(issuer, client_id)`, генерирует криптостойкие `state` (32 байта) и `nonce` (24 байта) через `secrets.token_urlsafe`, кладёт `LaunchState` в Redis под ключом `lti:launch-state:<state>` с TTL 5 минут и редиректит браузер на `auth_login_url` платформы. Если issuer не зарегистрирован или для одного issuer'а несколько платформ без `client_id` - сразу 403.
+
+**Launch и валидация id_token.** На колбэке `POST /api/v1/lti/launch` модуль `backend/app/lti/validator.py`:
+
+* достаёт JWKS платформы через `httpx` (cache 10 минут, см. `backend/app/lti/jwks.py`), выбирает ключ по `kid`;
+* проверяет подпись (RS256 / RS384 / RS512), а также claims `iss`, `aud`, `exp`, `iat`, `sub`;
+* сверяет `nonce` с тем, что лежит в Redis-state'е, и потребляет state одной командой `GETDEL` - повторный launch с тем же state невозможен;
+* убеждается, что `version=1.3.0`, `message_type=LtiResourceLinkRequest`, и что присланный `deployment_id` входит в allowlist платформы (без allowlist'а launch отбивается с явной ошибкой - запрещаем «слепое» доверие);
+* распаковывает claims: `sub`, `email`, `name`, `roles`, `context.id/title`, `resource_link.id/title`, `custom.*`.
+
+**Маппинг и обработка неизвестных курсов.** Сущность `CourseMapping` хранит связь `(lti_context_id, resource_link_id) → (ki_domain_name, image_id, flavor_id, lab_code, inspector_template)`. `resource_link_id` опционален: сначала ищем по полному ключу, иначе fallback на маппинг без resource_link. Если в LTI пришли поля `custom.ki_image`, `custom.ki_flavor`, `custom.lab_id` - они переопределяют соответствующие поля маппинга, что даёт точечную настройку прямо из Moodle.
+
+Когда маппинга нет, запрос не теряется: `record_unmapped_launch()` сохраняет его в `PendingLtiBinding` со счётчиком попыток, заголовком курса/задания и последним пользователем. Студенту уходит 422 с текстом «курс ещё не настроен преподавателем». Преподаватель открывает `/admin/mappings`, видит список `PendingLtiBinding` с превью контекста и одним кликом создаёт маппинг с предзаполненными `lti_context_id`/`resource_link_id` - копипастить ID руками не нужно. После создания маппинга связанные `PendingLtiBinding` автоматически снимаются (`drop_pending_for_mapping`).
+
+**Идентификация и переиспользование.** `owner_external_id` формируется как `"<platform.id>:<sub>"` - изолирует пользователей разных Moodle'ов друг от друга. Параллельно `LtiUser` ведёт журнал входов (email, name, последний курс, login_count, last_seen). Если у владельца уже есть активный стенд (`ALLOCATING`/`DEPLOYING`/`READY`/`FROZEN`/`CLEANING`), повторный launch не создаёт новый стенд, а отдаёт редирект на существующий с пометкой `reused=True`. Это закрывает кейс «студент кликнул в Moodle второй раз».
+
+**Регистрация инструмента в Moodle.** `GET /api/v1/lti/jwks.json` отдаёт публичный JWK инструмента (RS256, 4096 бит), приватный ключ генерируется в `entrypoint.sh` при первом запуске. `GET /api/v1/lti/config.json` отдаёт JSON-дескриптор Tool: `oidc_initiation_url`, `target_link_uri`, `public_jwk_url` - можно скормить Moodle напрямую.
+
+**REST fallback.** `POST /api/v1/integrations/moodle/launch` принимает `lti_context_id`, `resource_link_id`, `user_id`, `user_display_name` через Moodle Web Services, разрешает маппинг той же логикой и тоже умеет писать unmapped-запросы в `PendingLtiBinding`. Используется для интеграций, которым LTI поднимать дорого.
+
+После любого успешного launch backend редиректит студента на frontend-страницу `/lti/launching/<stand_id>`, где компонент `useStand` поллит статус стенда и переключает экран с «разворачиваем» на «готово» по мере прохождения FSM.
 
 ### Этап 5. DevOps и DevSecOps
 
-**Запуск одной командой:**
+Всё окружение поднимается через `docker compose`:
 
 ```bash
-make bootstrap   # cp .env.example .env, cp pool.example.yaml pool.yaml
+cp .env.example .env
+cp config/pool.example.yaml config/pool.yaml
 # отредактировать .env (OS_*, SUPER_ADMIN_*) и config/pool.yaml (UUID проектов КИ)
-make up          # docker compose up --build -d
+docker compose up --build -d
 ```
 
-Контейнеры (`docker-compose.yml`):
+`docker-compose.yml` описывает восемь сервисов. `db` (PostgreSQL 16-alpine) и `redis` (7-alpine с `--save 60 1`) - state и healthcheck-зависимости. `guacd` (Guacamole 1.5.5) обслуживает web-консоль VNC/RDP/SSH. `api` стартует FastAPI через uvicorn, при этом `entrypoint.sh` сначала ждёт TCP-доступности Postgres и Redis, генерирует ed25519- и RSA-ключи в `/app/secrets`, если их там нет, и запускает `scripts/init_db.py` - тот создаёт схему и сидит пул из `pool.yaml`. `worker` поднимает Celery с очередью `orchestrator`, пулом `threads` и concurrency 4, `beat` крутит планировщик sweep-задачи. `web` - Next.js 16 в standalone-сборке, non-root. Снаружи всё закрывается одним `nginx` на порту 8080: он маршрутизирует `/api/`, `/docs`, `/redoc`, `/openapi.json`, поднимает WebSocket для консоли на `/api/v1/stands/<id>/console`, проксирует noVNC через `/console-proxy/` (включая `Upgrade` для websockify) и навешивает CSP `frame-ancestors` для LTI embed.
 
-* `db` - PostgreSQL 16-alpine, healthcheck `pg_isready`;
-* `redis` - Redis 7-alpine, persistence `--save 60 1`;
-* `guacd` - `guacamole/guacd:1.5.5` для web-консоли VNC/RDP/SSH;
-* `api` - FastAPI через uvicorn, `entrypoint.sh` ждёт Postgres/Redis, генерирует ed25519 + RSA ключи, прогоняет `scripts/init_db.py` (создание схемы + сид пула);
-* `worker` - Celery worker (очередь `orchestrator`, пул `threads`, concurrency 4 по умолчанию);
-* `beat` - Celery beat для sweep-задачи;
-* `web` - Next.js 16 (standalone build, non-root);
-* `nginx` - reverse proxy на порту 8080: маршрутизация `/api/`, `/docs`, `/redoc`, `/openapi.json`, WebSocket `/api/v1/stands/<id>/console`, проксирование noVNC через `/console-proxy/`, CSP `frame-ancestors` для LTI embed.
-
-**DevSecOps-стандарт:**
-
-* Все контейнеры под non-root (`app:app`, UID 10001/10002), `security_opt: no-new-privileges:true`.
-* Секреты не лежат в репозитории: `.env.example` пустой шаблон, ключи генерируются в `entrypoint.sh`. Скрипт `scripts/check-no-secrets-files.sh` запрещает коммит в `secrets/`. Gitleaks-конфиг (`.gitleaks.toml`) на CI и в pre-commit.
-* Linting и SAST: `ruff` + `bandit` для backend, `eslint` + `tsc --noEmit` для frontend.
-* Аудит зависимостей: `pip-audit`, `npm audit --audit-level=high`.
-* Сканирование образов: Trivy на CI (CRITICAL/HIGH, ignore-unfixed=false, fail-on-detection).
-* Pre-commit hooks (`.pre-commit-config.yaml`): trailing-whitespace, end-of-file-fixer, detect-private-key, detect-aws-credentials, ruff (lint + format), bandit, gitleaks, pip-audit, forbid-secrets-dir-content.
-* GitHub Actions workflow (`.github/workflows/security.yml`): backend-lint, backend-sast (Bandit SARIF upload), python-deps-audit, frontend-lint, frontend-deps-audit, secret-scan, container-scan (Trivy SARIF), pre-commit.
+**DevSecOps.** Контейнеры стартуют от выделенных пользователей `app:app` (UID 10001/10002), на всех проставлен `security_opt: no-new-privileges:true`. Секреты в репозиторий не пропускаются: `.env.example` - пустой шаблон, реальные ключи генерируются в `entrypoint.sh`, локальный pre-commit hook `scripts/check-no-secrets-files.sh` запрещает коммит чего-либо в `secrets/`, а Gitleaks с конфигом `.gitleaks.toml` проверяет код и в pre-commit, и в CI. Backend линтится через `ruff` и сканируется `bandit` (SARIF загружается в Code Scanning), frontend - через `eslint` и `tsc --noEmit`. Зависимости проверяются `pip-audit` для backend и `npm audit --audit-level=high` для frontend. Контейнерные образы прогоняются через Trivy с уровнем CRITICAL/HIGH и `exit-code: "1"`, чтобы CI красился на первом найденном CVE. Полный pipeline лежит в `.github/workflows/security.yml`: `python-lint`, `python-sast`, `python-deps-audit`, `frontend-lint`, `frontend-deps-audit`, `secret-scan`, `container-scan` и `pre-commit`. Pre-commit hooks при локальной разработке (`.pre-commit-config.yaml`): trailing-whitespace, end-of-file-fixer, detect-private-key, detect-aws-credentials, ruff (lint + format), bandit, gitleaks, pip-audit и собственная защита `secrets/`.
 
 ## Дополнительные возможности сверх ТЗ
 
@@ -198,7 +173,6 @@ cloud-lab-manager/
 │   ├── validate-pool.py        # схема-валидатор config/pool.yaml
 │   └── check-no-secrets-files.sh
 ├── docker-compose.yml
-├── Makefile                    # bootstrap, up, down, nuke, logs, ps, lint, sast, test, pool-*
 ├── .env.example                # пустой шаблон
 ├── .gitleaks.toml
 ├── .pre-commit-config.yaml
@@ -222,7 +196,7 @@ cloud-lab-manager/
 * `GUACD_HOST`, `GUACD_PORT`, `CONSOLE_TOKEN_TTL_SECONDS`, `NOVNC_UPSTREAM`;
 * `NGINX_HOST_PORT` (по умолчанию 8080).
 
-Пул проектов КИ описывается в `config/pool.yaml`: список с `ki_project_id`, `ki_project_name`, `ki_domain_id`, `ki_domain_name`, `ki_network_id`, `ki_router_id`. Валидируется `make pool-validate`. Изменения подхватываются перезапуском `make pool-reload` (запускает `scripts/init_db.py` внутри контейнера api).
+Пул проектов КИ описывается в `config/pool.yaml`: список с `ki_project_id`, `ki_project_name`, `ki_domain_id`, `ki_domain_name`, `ki_network_id`, `ki_router_id`. Валидируется `python3 scripts/validate-pool.py`. Изменения подхватываются командой `docker compose exec api python -m scripts.init_db`.
 
 ## API
 
@@ -258,19 +232,19 @@ cloud-lab-manager/
 
 ## Команды разработки
 
-* `make bootstrap` - создать `.env` и `config/pool.yaml` из примеров
-* `make up` - `docker compose up --build -d`, показать статус
-* `make down` - остановить контейнеры (volume сохраняются)
-* `make nuke` - остановить и удалить volume (потеря данных)
-* `make logs SERVICE=api` - хвост логов сервиса
-* `make ps` - статус health контейнеров
-* `make shell` - Python REPL внутри api-контейнера
-* `make pool-reload` - прогнать `scripts/init_db.py` для подхвата изменений `pool.yaml`
-* `make pool-validate` - проверить YAML-схему пула
-* `make lint` - `ruff check`
-* `make fmt` - `ruff format`
-* `make sast` - `bandit`
-* `make test` - `pytest`
+* `cp .env.example .env && cp config/pool.example.yaml config/pool.yaml` - подготовить конфиги из шаблонов
+* `docker compose up --build -d` - собрать и поднять весь стек
+* `docker compose ps` - статус health контейнеров
+* `docker compose down` - остановить контейнеры (volume сохраняются)
+* `docker compose down -v` - остановить и удалить volume (потеря данных)
+* `docker compose logs -f --tail=200 api` - хвост логов сервиса (замените `api` на нужный)
+* `docker compose exec api python` - Python REPL внутри api-контейнера
+* `docker compose exec api python -m scripts.init_db` - подхватить изменения `pool.yaml`
+* `python3 scripts/validate-pool.py` - проверить YAML-схему пула
+* `docker compose exec api ruff check app` - lint backend
+* `docker compose exec api ruff format app` - format backend
+* `docker compose exec api bandit -c pyproject.toml -r app -ll -ii` - SAST
+* `docker compose exec api pytest` - тесты
 
 ## Точки расширения
 
