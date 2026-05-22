@@ -30,7 +30,6 @@ _JWKS_TTL_SECONDS = 600.0
 _JWKS_LOCK = asyncio.Lock()
 
 
-# получить JWKS платформы с in-memory кэшем на 10 минут
 async def fetch_platform_jwks(jwks_url: str) -> dict[str, Any]:
     cached = _JWKS_CACHE.get(jwks_url)
     if cached and (time.monotonic() - cached.fetched_at) < _JWKS_TTL_SECONDS:
@@ -52,7 +51,6 @@ async def fetch_platform_jwks(jwks_url: str) -> dict[str, Any]:
         return data
 
 
-# найти JWK по kid или вернуть единственный ключ если kid не задан
 def pick_signing_key(jwks: dict[str, Any], kid: str | None) -> PyJWK:
     keys = jwks.get("keys") or []
     if not keys:
@@ -91,7 +89,6 @@ def _load_tool_public_pem() -> bytes:
     return path.read_bytes()
 
 
-# публичный JWKS нашего tool отдаётся по GET /api/v1/lti/jwks.json
 def tool_jwks() -> dict[str, Any]:
     settings = get_settings()
     public_pem = _load_tool_public_pem()
@@ -102,7 +99,6 @@ def tool_jwks() -> dict[str, Any]:
     return {"keys": [jwk]}
 
 
-# подписать исходящий JWT приватным ключом tool для AGS NRPS scope-токенов
 def sign_tool_jwt(payload: dict[str, Any]) -> str:
     settings = get_settings()
     return jwt.encode(

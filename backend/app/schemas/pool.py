@@ -39,7 +39,6 @@ class PoolProjectIn(BaseModel):
     @field_validator("ki_network_id", "ki_router_id")
     @classmethod
     def _optional_openstack_id(cls, v: str | None) -> str | None:
-        # None и пустую строку трактуем как «не задано», иначе требуем формат OpenStack ID
         if v is None or not v.strip():
             return None
         return _validate_openstack_id(v, "ki_network_id/ki_router_id")

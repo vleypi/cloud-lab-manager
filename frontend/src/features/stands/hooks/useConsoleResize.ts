@@ -26,9 +26,7 @@ export function useConsoleResize(
       lastH = h;
       try {
         client.sendSize(w, h);
-      } catch {
-        // ignore
-      }
+      } catch {}
     };
 
     send();

@@ -77,8 +77,6 @@ class CourseMapping(Base, TimestampMixin):
 
 
 class PendingLtiBinding(Base, TimestampMixin):
-    # запросы от Moodle с context_id/resource_link_id, для которых ещё нет CourseMapping.
-    # препод видит этот список в админке и одним кликом создаёт маппинг без копипаста id
     __tablename__ = "pending_lti_bindings"
     __table_args__ = (
         UniqueConstraint(
@@ -94,11 +92,9 @@ class PendingLtiBinding(Base, TimestampMixin):
     lti_context_id: Mapped[str] = mapped_column(String(256), nullable=False)
     resource_link_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
 
-    # человеческие заголовки из LTI payload (Moodle присылает context.title / resource_link.title)
     context_title: Mapped[str | None] = mapped_column(String(512), nullable=True)
     resource_link_title: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
-    # последний пользователь и счётчик попыток — препод видит «N студентов уже ждут»
     last_user_external_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
     last_user_display_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
     seen_count: Mapped[int] = mapped_column(default=1, nullable=False)

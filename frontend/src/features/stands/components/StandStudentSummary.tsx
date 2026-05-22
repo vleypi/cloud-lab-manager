@@ -11,8 +11,6 @@ interface IStandStudentSummaryProps {
   stand: IStand;
 }
 
-// студенту нужно знать только сколько осталось до auto-destroy и когда обновлялось,
-// плюс ID стенда «на всякий» для тикета в поддержку (под раскрывашкой)
 export function StandStudentSummary({ stand }: IStandStudentSummaryProps) {
   return (
     <Card>

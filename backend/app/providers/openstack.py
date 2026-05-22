@@ -1,5 +1,3 @@
-"""Реализация CloudProvider поверх OpenStack SDK для платформы КИ."""
-
 import asyncio
 import base64
 import ssl
@@ -42,7 +40,6 @@ from app.providers.types import (
 
 logger = structlog.get_logger(__name__)
 
-# Keystone КИ использует устаревший TLS отключаем строгий SECLEVEL OpenSSL
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
@@ -248,14 +245,10 @@ class OpenStackProvider(CloudProvider):
             entry = entry or {}
             used = float(entry.get("in_use", 0))
             limit = float(entry.get("limit", 0))
-            if limit < 0:  # -1 означает "unlimited"
+            if limit < 0:
                 limit = max(used * 2, 1.0)
             return ResourceUsage(used=used, total=limit)
 
-        # storage берётся из cinder отдельным вызовом — это другой сервис, его квоты
-        # в compute не отдаются. если cinder недоступен или нет прав — оставляем zero.
-        # приоритет: gigabytes_default (реальный лимит проекта, напр. 500) >
-        # gigabytes (может быть -1 unlimited → удвоим used, что вводит в заблуждение)
         disk_entry: dict | None = None
         try:
             conn_for_disk = await self._system()
@@ -270,7 +263,7 @@ class OpenStackProvider(CloudProvider):
                 disk_entry = default
             else:
                 disk_entry = qs_disk.get("gigabytes")
-        except Exception as exc:  # cinder может быть не задеплоен / нет прав / 4xx
+        except Exception as exc:
             logger.info("cinder_quota_unavailable", error=str(exc))
 
         return ClusterUtilization(
@@ -284,10 +277,6 @@ class OpenStackProvider(CloudProvider):
     def _fetch_hypervisor_statistics(self, conn: openstack.connection.Connection) -> dict[str, Any]:
         try:
             resp = conn.compute.get("/os-hypervisors/statistics")
-            # openstacksdk на 4xx от admin-only endpoint НЕ бросает HttpException,
-            # а возвращает Response с error body. Без явной проверки status .json()
-            # вернёт {"forbidden": ...}, и все stats.get("vcpus", 0) станут нулями —
-            # будет тихий показ «0 из 0» вместо нормального fallback на quota
             if resp.status_code >= 400:
                 raise os_exc.HttpException(
                     f"hypervisor statistics returned HTTP {resp.status_code}",
@@ -465,8 +454,6 @@ class OpenStackProvider(CloudProvider):
                 external_network_id=external_network_id,
             )
         except CloudProviderError:
-            # внутри _attach_floating_ip уже есть осмысленные сообщения
-            # («No external network available» / «Server has no Neutron port»), не оборачиваем
             raise
         except Exception as exc:
             raise CloudProviderError(

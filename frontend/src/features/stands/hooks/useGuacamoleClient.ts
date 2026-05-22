@@ -218,9 +218,7 @@ export function useGuacamoleClient(standId: string, enabled: boolean): UseGuacam
       cancelled = true;
       try {
         clientRef.current?.disconnect();
-      } catch {
-        // ignore
-      }
+      } catch {}
       clientRef.current = null;
       setClient(null);
       const container = containerElRef.current;

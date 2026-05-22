@@ -18,6 +18,5 @@ export const ROUTES = {
     LAUNCHING: (standId: string) => `/lti/launching/${standId}`,
   },
 
-  // статический HTML-симулятор Moodle лежит в /public/, не в Next-роутинге
   FAKE_MOODLE: "/fake-moodle-login.html",
 } as const;

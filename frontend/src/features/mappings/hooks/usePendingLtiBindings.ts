@@ -9,7 +9,6 @@ export function usePendingLtiBindings() {
   return useQuery({
     queryKey: MAPPINGS_QK.pendingBindings(),
     queryFn: () => mappingsService.listPendingBindings(),
-    // часто меняется когда студенты тыкают активность в Moodle, поэтому короткий staleTime
     staleTime: 5_000,
     refetchInterval: 15_000,
   });

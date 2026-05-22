@@ -7,6 +7,5 @@ export interface INavItem {
   icon: ReactNode;
   exact?: boolean;
   badge?: string | number;
-  // открыть в новой вкладке (для статики /public и внешних ссылок)
   external?: boolean;
 }

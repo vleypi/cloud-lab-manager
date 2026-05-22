@@ -33,7 +33,6 @@ export function CourseMappingsTable() {
   const { openModal, closeModal } = useModal();
   const [searchQuery, setSearchQuery] = useState("");
 
-  // домены, в которых есть хоть один проект пула — остальные ki_domain_name в маппингах «висят в воздухе»
   const domainsWithProjects = useMemo(
     () => new Set((poolProjects ?? []).map((p) => p.ki_domain_name)),
     [poolProjects],

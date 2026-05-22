@@ -7,7 +7,6 @@ from app.inspector.types import CheckOutcome, CheckTemplate, RunReport
 logger = structlog.get_logger(__name__)
 
 
-# выполнить все шаги шаблона по SSH собрать отчёт даже если соединение упало
 async def run_template(template: CheckTemplate, *, host: str) -> RunReport:
     report = RunReport(template_name=template.name, template_version=template.version)
 

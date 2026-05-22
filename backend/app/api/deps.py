@@ -105,7 +105,6 @@ async def current_user(
     return user
 
 
-# гуард для эндпоинтов доступных только супер-админу
 async def require_super_admin(user: User = Depends(current_user)) -> User:
     if not user.is_super_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="super_admin_required")

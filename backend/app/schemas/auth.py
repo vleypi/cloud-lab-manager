@@ -4,7 +4,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class AdminLoginIn(BaseModel):
-    # plain str без email-validator достаточно case-insensitive сравнения с БД
     email: str = Field(..., min_length=3, max_length=256)
     password: str = Field(..., min_length=1, max_length=512)
 

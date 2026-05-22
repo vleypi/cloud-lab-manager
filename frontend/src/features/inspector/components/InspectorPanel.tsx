@@ -22,11 +22,7 @@ interface IInspectorPanelProps {
   isStandReady: boolean;
 
   readOnly?: boolean;
-  // когда задан, селект шаблона скрывается и используется этот шаблон.
-  // подбор: точное совпадение по name → startsWith → первый доступный
   lockedTemplate?: string | null;
-  // если передан — кнопка disabled, в hint выводится причина (например, нет floating IP).
-  // нужно чтобы препод не получал 409 «Stand has no reachable IP address» из ниоткуда
   unreachableReason?: string | null;
 }
 

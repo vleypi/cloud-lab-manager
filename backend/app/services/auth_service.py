@@ -40,7 +40,6 @@ class AuthService:
     async def admin_login(self, *, email: str, password: str) -> User:
         user = await self.get_by_email(email)
         if user is None or not user.is_super_admin or not user.password_hash:
-            # одна и та же ошибка во всех ветках чтобы не утекали данные об аккаунтах
             raise InvalidCredentialsError("Invalid email or password")
         if not verify_password(password, user.password_hash):
             raise InvalidCredentialsError("Invalid email or password")

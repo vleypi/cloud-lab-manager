@@ -91,7 +91,6 @@ class MoodleRestLaunchIn(BaseModel):
     user_display_name: str | None = Field(default=None, max_length=256)
     lti_context_id: str = Field(..., min_length=1, max_length=256)
     resource_link_id: str | None = Field(default=None, max_length=256)
-    # опциональные человеческие заголовки для UI ожидающих привязок
     context_title: str | None = Field(default=None, max_length=512)
     resource_link_title: str | None = Field(default=None, max_length=512)
 

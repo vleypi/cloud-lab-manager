@@ -16,8 +16,6 @@ import { TStandStatus } from "@/features/stands/interfaces/stands.interfaces";
 interface IStandFsmTimelineProps {
   status: TStandStatus;
   statusReason?: string | null;
-  // когда true и статус ready — рендерим компактный badge с раскрывашкой,
-  // вместо полной шкалы. используется в student-вьюхе чтобы не шуметь
   compactWhenReady?: boolean;
 }
 

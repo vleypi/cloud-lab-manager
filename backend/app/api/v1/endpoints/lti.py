@@ -155,7 +155,6 @@ async def upsert_mapping(
         for k, v in payload.model_dump().items():
             setattr(mapping, k, v)
     await session.flush()
-    # снимаем ожидавшие привязки на эту же (context_id, link_id) пару — они теперь покрыты
     await drop_pending_for_mapping(session, mapping)
     await session.commit()
     await session.refresh(mapping)
@@ -189,8 +188,6 @@ async def delete_mapping(
 async def list_pending_bindings(
     session: AsyncSession = Depends(db_session),
 ) -> list[PendingLtiBindingOut]:
-    # LTI-запросы без CourseMapping — препод видит «N студентов уже пробовали зайти»
-    # и одним кликом создаёт маппинг с предзаполненными context_id / resource_link_id
     rows = await session.scalars(
         select(PendingLtiBinding).order_by(PendingLtiBinding.last_seen_at.desc())
     )
@@ -202,7 +199,6 @@ async def dismiss_pending_binding(
     binding_id: str = Path(...),
     session: AsyncSession = Depends(db_session),
 ) -> None:
-    # явное «отмахнуться» — если препод понимает, что это спам или больше не актуально
     binding = await session.get(PendingLtiBinding, binding_id)
     if binding:
         await session.delete(binding)

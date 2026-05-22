@@ -10,9 +10,6 @@ from app.providers import CloudFlavor, CloudProvider, ClusterUtilization, get_cl
 
 logger = structlog.get_logger(__name__)
 
-# если max_percent в кеше выше порога-этого-окна — кеш считается «горячим»
-# и принудительно обновляется при следующем snapshot, чтобы не пропустить
-# скачок утилизации в опасной зоне
 _HOT_ZONE_MARGIN_PERCENT = 10.0
 
 
@@ -119,9 +116,6 @@ class CapacityChecker:
             return False
         if (now - self._cache.captured_at) >= self._ttl:
             return False
-        # горячая зона: если текущая утилизация подобралась к порогу ближе чем
-        # _HOT_ZONE_MARGIN_PERCENT, считаем кеш протухшим, чтобы не выдать allow
-        # на устаревших данных
         effective_threshold = threshold if threshold is not None else self._threshold
         hot_zone_floor = max(0.0, effective_threshold - _HOT_ZONE_MARGIN_PERCENT)
         if self._cache.utilization.max_percent >= hot_zone_floor:
@@ -156,7 +150,6 @@ class CapacityChecker:
 
         current_max = utilization.max_percent
 
-        # предиктивная формула: учитываем ресурсы запрашиваемой ВМ
         if flavor is not None:
             projected = max(
                 _projected_percent(

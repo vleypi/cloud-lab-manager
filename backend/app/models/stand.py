@@ -35,7 +35,6 @@ class Stand(Base, TimestampMixin):
         Index("ix_stands_owner_status", "owner_external_id", "status"),
         Index("ix_stands_status", "status"),
         UniqueConstraint("ki_server_id", name="uq_stands_ki_server_id"),
-        # один студент держит максимум один активный стенд
         Index(
             "uq_stands_owner_active",
             "owner_external_id",
@@ -85,11 +84,9 @@ class Stand(Base, TimestampMixin):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     destroyed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    # заморозка для разбора инцидента преподавателем
     frozen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     frozen_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # id текущей Celery-задачи провижена или удаления для UI
     task_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     attempt: Mapped[int] = mapped_column(default=0, nullable=False)
 

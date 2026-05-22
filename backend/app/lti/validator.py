@@ -41,7 +41,6 @@ class LaunchClaims:
     raw: dict[str, Any]
 
 
-# полная проверка id_token и сборка структуры claims для запуска стенда
 async def validate_id_token(
     *,
     id_token: str,

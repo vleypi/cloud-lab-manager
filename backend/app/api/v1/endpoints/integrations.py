@@ -53,7 +53,6 @@ async def rest_launch(
             resource_link_id=payload.resource_link_id,
         )
     except CourseNotMappedError:
-        # маппинга нет — запоминаем запрос для админки, чтобы препод одним кликом привязал
         await record_unmapped_launch(
             session,
             lti_context_id=payload.lti_context_id,

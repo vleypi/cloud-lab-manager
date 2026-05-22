@@ -8,13 +8,6 @@ from app.db.base import Base, TimestampMixin
 
 
 class CapacityRejection(Base, TimestampMixin):
-    """Запись отказа capacity-guard'а — используется как audit-log администратора.
-
-    Каждая блокировка запуска стенда из-за превышения порога утилизации КИ
-    сохраняется здесь, чтобы админ мог восстановить контекст инцидента
-    (кто, когда, какой flavor, какая утилизация была в момент отказа).
-    """
-
     __tablename__ = "capacity_rejections"
     __table_args__ = (
         Index("ix_capacity_rejections_created_at", "created_at"),

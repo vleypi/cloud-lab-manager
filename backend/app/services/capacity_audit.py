@@ -32,8 +32,6 @@ def _safe_int(value: Any) -> int | None:
 
 
 class CapacityAuditRecorder:
-    """Сохраняет события отказов capacity-guard'а в БД."""
-
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
@@ -106,8 +104,6 @@ class CapacityAuditRecorder:
             await self._session.commit()
             await self._session.refresh(row)
         except Exception as persist_exc:
-            # аудит не должен ломать основной flow: пользователь получит 503,
-            # но запись отказа в БД не критична для пользователя — только для админа
             try:
                 await self._session.rollback()
             except Exception:

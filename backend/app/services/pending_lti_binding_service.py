@@ -1,7 +1,3 @@
-"""Сервис для записи входящих LTI-запросов без маппинга — препод видит их в админке
-и одним кликом создаёт CourseMapping без копипаста id из Moodle.
-"""
-
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -25,9 +21,6 @@ async def record_unmapped_launch(
     user_external_id: str | None = None,
     user_display_name: str | None = None,
 ) -> PendingLtiBinding:
-    """Upsert: если такая пара уже ждёт привязки — инкрементим счётчик и обновляем
-    last_seen_at; иначе создаём новую запись. Идемпотентно по (context_id, link_id).
-    """
     now = datetime.now(UTC)
     stmt = select(PendingLtiBinding).where(
         PendingLtiBinding.lti_context_id == lti_context_id,
@@ -59,8 +52,6 @@ async def record_unmapped_launch(
 
     existing.seen_count += 1
     existing.last_seen_at = now
-    # обновляем человеческие заголовки только если пришли непустые — Moodle может
-    # их переименовать со временем, забывать старое не страшно
     if context_title:
         existing.context_title = context_title
     if resource_link_title:
@@ -80,19 +71,12 @@ async def record_unmapped_launch(
 
 
 async def drop_pending_for_mapping(session: AsyncSession, mapping: CourseMapping) -> int:
-    """Когда препод создал/обновил CourseMapping — снимаем pending-записи,
-    которые на него теперь матчатся. Возвращает кол-во удалённых.
-    Точное совпадение по (context_id, resource_link_id), плюс fallback на
-    pending с тем же context_id и пустым resource_link_id (если маппинг тоже без link).
-    """
     stmt = select(PendingLtiBinding).where(
         PendingLtiBinding.lti_context_id == mapping.lti_context_id,
     )
     if mapping.resource_link_id is None:
-        # маппинг-fallback (без link) сматчит ВСЕ pending этого контекста
         candidates = (await session.scalars(stmt)).all()
     else:
-        # точный маппинг — снимает pending с тем же link, плюс «пустой» pending на этот же контекст
         candidates = (
             await session.scalars(
                 stmt.where(

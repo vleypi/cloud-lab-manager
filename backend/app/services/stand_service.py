@@ -62,8 +62,6 @@ class StandService:
             flavor = await self._provider.get_flavor(req.flavor_id)
             flavor_req = FlavorRequirements.from_flavor(flavor)
         except CloudProviderError as exc:
-            # если не удалось узнать flavor — деградируем до реактивной проверки
-            # (без предиктивной формулы), но фиксируем это в логе
             logger.warning(
                 "flavor_lookup_failed_falling_back_to_reactive_capacity",
                 flavor_id=req.flavor_id,

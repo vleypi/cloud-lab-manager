@@ -13,7 +13,6 @@ from app.providers import CloudProvider
 
 logger = structlog.get_logger(__name__)
 
-# стенды в этих статусах считаем «живыми» — нельзя удалять проект, на который они ссылаются
 _ACTIVE_STAND_STATUSES = frozenset(
     {
         StandStatus.ALLOCATING,
@@ -108,9 +107,6 @@ async def delete_project(
             detail="Cannot delete an allocated project, destroy the stand first",
         )
 
-    # FK stands.pool_project_id = RESTRICT + NOT NULL: пока хоть один стенд (даже терминальный)
-    # держит ссылку, ALTER не пройдёт. Историю терминальных стендов чистим в той же транзакции,
-    # активные — отказываем (как и в init_db.py orphan-cleanup)
     linked_stands = (
         (await session.execute(select(Stand).where(Stand.pool_project_id == project_id)))
         .scalars()

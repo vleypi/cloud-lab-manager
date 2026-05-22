@@ -209,8 +209,6 @@ def provision_stand(self: Task, stand_id: str) -> dict:
                 )
             )
         except CloudProviderError as exc:
-            # без details причина теряется, инспектор потом отказывается с непонятным
-            # «no reachable IP», а оригинал (нет external network / нет роутера / ...) висит только тут
             floating_ip_error = f"{exc}: {getattr(exc, 'details', None)}"
             logger.warning(
                 "provision_floating_ip_failed",
@@ -224,8 +222,6 @@ def provision_stand(self: Task, stand_id: str) -> dict:
 
         stand.ki_floating_ip = floating_ip
         extra_update = {"fixed_ips": deployed.fixed_ips}
-        # пробрасываем причину в extra, чтобы UI и /stands/{id} могли её показать —
-        # инспектор сейчас валится с обтекаемым «no reachable IP», и препод гадает что не так
         if floating_ip_error:
             extra_update["floating_ip_error"] = floating_ip_error
         stand.extra = {**(stand.extra or {}), **extra_update}
