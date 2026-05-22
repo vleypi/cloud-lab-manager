@@ -1,4 +1,3 @@
-
 FROM node:22-bookworm-slim AS builder
 
 ENV NEXT_TELEMETRY_DISABLED=1

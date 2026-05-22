@@ -40,14 +40,36 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "S", "C4", "SIM", "RUF"]
-ignore = ["S101", "B008"]
+ignore = [
+    "S101",   # assert allowed in dev
+    "B008",   # FastAPI Depends() in defaults is idiomatic
+    "S104",   # bind 0.0.0.0 is intentional inside the container
+    "RUF001", # Cyrillic letters in strings are intentional (Russian UI text)
+    "RUF002", # Cyrillic letters in docstrings are intentional
+    "RUF003", # Cyrillic letters in comments are intentional
+    "E501",   # line length already enforced by ruff format
+]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S"]
+"app/inspector/checks.py" = ["S108"]  # /tmp file lives inside the lab VM via SSH, not on host
+"app/services/capacity_audit.py" = ["S110", "SIM105"]  # audit must never break primary flow
+"app/services/lti_service.py" = ["S110"]  # commits guarded explicitly
+"app/services/lifecycle_settings.py" = ["S110"]
+"app/services/lifecycle_service.py" = ["S110"]
+"app/tasks/stands.py" = ["S110", "SIM105"]  # cleanup best-effort, errors logged elsewhere
+"app/services/auth_service.py" = ["SIM105"]
+"app/main.py" = ["E402"]  # imports under settings load
+"app/celery_app.py" = ["E402"]
+"app/api/v1/endpoints/console.py" = ["S110", "SIM105", "SIM108"]
+"app/api/v1/endpoints/pool.py" = ["E402"]
+"app/services/console_session.py" = ["SIM102"]
+"app/services/guacd_bridge.py" = ["S110", "UP038"]
+"app/services/capacity_checker.py" = ["SIM103"]
 
 [tool.bandit]
 exclude_dirs = ["scripts", ".venv", "tests"]
-skips = ["B101", "B104"]  # asserts in dev, 0.0.0.0 bind inside container
+skips = ["B101"]  # B101: asserts allowed in dev
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

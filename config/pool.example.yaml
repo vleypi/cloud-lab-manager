@@ -1,9 +1,10 @@
-- ki_project_id:    "REPLACE-WITH-PROJECT-UUID-1"
-  ki_project_name:  course-cloud-lab-01
-  ki_domain_id:     "REPLACE-WITH-DOMAIN-UUID"
-  ki_domain_name:   course-cloud
-  ki_network_id:    "REPLACE-WITH-NETWORK-UUID-1"
-  ki_router_id:     "REPLACE-WITH-ROUTER-UUID-1"
+
+- ki_project_id:    "REPLACE-WITH-PROJECT-UUID-1"  
+  ki_project_name:  course-cloud-lab-01            
+  ki_domain_id:     "REPLACE-WITH-DOMAIN-UUID"      
+  ki_domain_name:   course-cloud                    
+  ki_network_id:    "REPLACE-WITH-NETWORK-UUID-1"  
+  ki_router_id:     "REPLACE-WITH-ROUTER-UUID-1"    
 
 - ki_project_id:    "REPLACE-WITH-PROJECT-UUID-2"
   ki_project_name:  course-cloud-lab-02

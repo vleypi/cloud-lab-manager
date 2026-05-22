@@ -1,37 +1,52 @@
 name: "Лаба 01 Apache с кастомным VirtualHost"
-version: "1"
+version: "2"
 description: >-
   Студент должен установить Apache, поднять сервис, открыть порт 80
   и подготовить конфиг сайта с директивой ServerName
 
 checks:
+  - name: дистрибутив Ubuntu/Debian
+    section: os
+    severity: warning
+    type: os_release
+    id_like: debian
+
   - name: пакет apache2 установлен
+    section: software
     type: package_installed
     package: apache2
 
   - name: сервис apache2 активен
+    section: software
     type: systemd_active
     unit: apache2
 
+  - name: процесс apache2 запущен
+    section: os
+    type: process_running
+    name: apache2
+    min_count: 1
+
   - name: порт 80/tcp слушается
+    section: network
     type: port_listening
     port: 80
     protocol: tcp
 
   - name: конфиг кастомного сайта существует
+    section: os
     type: file_exists
     path: /etc/apache2/sites-available/custom.conf
 
   - name: в конфиге задана директива ServerName
+    section: os
     type: file_contains
     path: /etc/apache2/sites-available/custom.conf
     pattern: '^\s*ServerName\s+\S+'
 
-  - name: localhost возвращает HTTP 200
-    type: command_exit_zero
-    cmd: "curl -fsS -o /dev/null -w '%{http_code}' http://localhost/ | grep -q '^200$'"
-
-  - name: заголовок Server в ответе содержит Apache
-    type: command_output_matches
-    cmd: "curl -sI http://localhost/ | tr -d '\\r'"
-    pattern: '^Server:\s+Apache'
+  - name: HTTP-эндпоинт отвечает 200
+    section: network
+    type: http_endpoint
+    url: http://localhost/
+    expect_status: 200
+    expect_header_matches: '^Server:\s+Apache'

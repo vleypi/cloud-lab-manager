@@ -1,0 +1,71 @@
+name: "Лаба 02 Nginx как reverse proxy"
+version: "1"
+description: >-
+  Студент устанавливает nginx, настраивает reverse proxy на 127.0.0.1:8080,
+  включает gzip и проверяет работоспособность через curl
+
+checks:
+  - name: дистрибутив Ubuntu/Debian
+    section: os
+    severity: warning
+    type: os_release
+    id_like: debian
+
+  - name: пакет nginx установлен
+    section: software
+    type: package_installed
+    package: nginx
+
+  - name: сервис nginx активен
+    section: software
+    type: systemd_active
+    unit: nginx
+
+  - name: процесс nginx запущен (worker'ы)
+    section: os
+    type: process_running
+    name: nginx
+    min_count: 2
+
+  - name: порт 80/tcp слушается
+    section: network
+    type: port_listening
+    port: 80
+    protocol: tcp
+
+  - name: конфиг сайта существует
+    section: os
+    type: file_exists
+    path: /etc/nginx/sites-available/lab.conf
+
+  - name: в конфиге настроен proxy_pass на 127.0.0.1:8080
+    section: software
+    type: file_contains
+    path: /etc/nginx/sites-available/lab.conf
+    pattern: '^\s*proxy_pass\s+http://127\.0\.0\.1:8080'
+
+  - name: gzip включён
+    section: software
+    severity: warning
+    type: file_contains
+    path: /etc/nginx/nginx.conf
+    pattern: '^\s*gzip\s+on\s*;'
+
+  - name: nginx -t возвращает успех
+    section: software
+    type: command_exit_zero
+    cmd: "sudo -n nginx -t"
+
+  - name: HTTP отвечает 200 с заголовком nginx
+    section: network
+    type: http_endpoint
+    url: http://localhost/
+    expect_status: 200
+    expect_header_matches: '^Server:\s+nginx'
+
+  - name: gzip-сжатие реально работает
+    section: network
+    severity: warning
+    type: command_output_matches
+    cmd: "curl -sI -H 'Accept-Encoding: gzip' http://localhost/ | tr -d '\\r'"
+    pattern: '^Content-Encoding:\s+gzip'

@@ -34,3 +34,20 @@ repos:
     rev: v8.21.2
     hooks:
       - id: gitleaks
+        args: ["--config", ".gitleaks.toml"]
+
+  - repo: https://github.com/pypa/pip-audit
+    rev: v2.7.3
+    hooks:
+      - id: pip-audit
+        args: ["--strict", "--progress-spinner=off"]
+        files: ^backend/pyproject\.toml$
+
+  - repo: local
+    hooks:
+      - id: forbid-secrets-dir-content
+        name: Forbid committing real files under secrets/
+        entry: scripts/check-no-secrets-files.sh
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]

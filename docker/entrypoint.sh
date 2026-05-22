@@ -1,4 +1,3 @@
-#!/bin/bash
 set -euo pipefail
 
 cmd="${1:-api}"
@@ -61,8 +60,6 @@ fi
 
 case "${cmd}" in
     api)
-        # инициализация схемы и засев пула делаются только в api
-        # worker и beat стартуют после api по depends_on и видят готовую БД
         echo "[entrypoint] python -m scripts.init_db"
         python -m scripts.init_db
         echo "[entrypoint] starting uvicorn"

@@ -1,0 +1,32 @@
+title = "Cloud-Lab Manager gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Project-level allowlist for documented dev placeholders"
+
+paths = [
+  '''(^|/)\.env\.example$''',
+  '''(^|/)\.env\.vm$''',
+  '''(^|/)\.gitleaks\.toml$''',
+  '''(^|/)docs/.*''',
+  '''(^|/)config/check_templates/.*\.ya?ml$''',
+  '''(^|/)frontend/node_modules/.*''',
+  '''(^|/)\.next/.*''',
+]
+
+regexes = [
+  '''dev-access-secret-change-me-32bytes-please-\d+''',
+  '''dev-refresh-secret-change-me-32bytes-please-\d+''',
+  '''change-me-in-production''',
+  '''ki_password''',
+  '''ki_user''',
+]
+
+stopwords = [
+  "example",
+  "placeholder",
+  "change-me",
+  "test",
+]

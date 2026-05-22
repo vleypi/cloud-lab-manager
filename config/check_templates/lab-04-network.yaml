@@ -1,0 +1,74 @@
+name: "Лаба 04 Сетевая конфигурация и DNS"
+version: "1"
+description: >-
+  Студент настраивает hostname, DNS-резолверы, проверяет внешнюю связность
+  и базовые правила firewall
+
+checks:
+  - name: hostname задан
+    section: os
+    type: command_output_matches
+    cmd: "hostname"
+    pattern: '^lab-host-\d+$'
+
+  - name: /etc/hosts содержит запись для localhost
+    section: network
+    type: file_contains
+    path: /etc/hosts
+    pattern: '^127\.0\.0\.1\s+localhost'
+
+  - name: resolv.conf указывает на 1.1.1.1
+    section: network
+    type: file_contains
+    path: /etc/resolv.conf
+    pattern: '^nameserver\s+1\.1\.1\.1'
+
+  - name: DNS резолвит github.com
+    section: network
+    type: dns_resolves
+    hostname: github.com
+
+  - name: DNS резолвит cloudflare.com
+    section: network
+    type: dns_resolves
+    hostname: cloudflare.com
+
+  - name: внешний HTTP работает
+    section: network
+    type: http_endpoint
+    url: https://1.1.1.1/
+    expect_status: 200
+    timeout_seconds: 15
+
+  - name: ufw установлен
+    section: software
+    severity: warning
+    type: package_installed
+    package: ufw
+
+  - name: ufw активен
+    section: software
+    severity: warning
+    type: command_output_matches
+    cmd: "sudo -n ufw status"
+    pattern: '^Status:\s+active'
+
+  - name: SSH (22/tcp) разрешён в ufw
+    section: network
+    severity: warning
+    type: command_output_matches
+    cmd: "sudo -n ufw status"
+    pattern: '22/tcp\s+ALLOW'
+
+  - name: пинг по умолчанию шлюз доступен
+    section: network
+    type: command_exit_zero
+    cmd: "ping -c 2 -W 2 $(ip route | awk '/default/ {print $3; exit}')"
+
+  - name: IPv4 forwarding отключён
+    section: os
+    severity: info
+    type: command_output_compare
+    cmd: "sysctl -n net.ipv4.ip_forward"
+    operator: "=="
+    value: 0
