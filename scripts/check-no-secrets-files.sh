@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 set -euo pipefail
 
 added=$(git diff --cached --name-only --diff-filter=A)

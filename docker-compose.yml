@@ -88,11 +88,11 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/healthz').status==200 else 1)\""]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 120s
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/healthz', timeout=3).status==200 else 1)\" || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 180s
 
   worker:
     <<: *app-base
@@ -107,9 +107,9 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.celery_app:celery_app inspect ping -d celery@$$HOSTNAME || exit 1"]
       interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 90s
 
   beat:
     <<: *app-base
@@ -131,6 +131,7 @@ services:
       BACKEND_INTERNAL_URL: http://api:8000
       NODE_ENV: production
       PORT: "3000"
+      HOSTNAME: "0.0.0.0"
     depends_on:
       api:
         condition: service_healthy
@@ -141,12 +142,14 @@ services:
     restart: unless-stopped
     healthcheck:
       test:
-        - "CMD-SHELL"
-        - "node -e \"require('http').get('http://localhost:3000/', r=>process.exit(r.statusCode>=200&&r.statusCode<500?0:1)).on('error',()=>process.exit(1))\""
+        - "CMD"
+        - "node"
+        - "-e"
+        - "require('net').createConnection(3000,'0.0.0.0').on('connect',function(){this.end();process.exit(0)}).on('error',()=>process.exit(1))"
       interval: 15s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 60s
 
   nginx:
     image: nginx:1.27-alpine
