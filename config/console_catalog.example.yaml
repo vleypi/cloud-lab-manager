@@ -1,0 +1,29 @@
+default:
+  protocol: ssh
+  username: ubuntu
+  port: 22
+
+images:
+  - image_id: "ubuntu-22.04"
+    protocol: ssh
+    username: ubuntu
+    port: 22
+
+  - image_id: "altlinux-10"
+    protocol: ssh
+    username: altlinux
+    port: 22
+
+  - image_id: "centos-stream-9"
+    protocol: ssh
+    username: cloud-user
+    port: 22
+
+  - image_id: "astra-desktop"
+    protocol: vnc
+    port: 5901
+
+  - image_id: "windows-server-2022"
+    protocol: rdp
+    username: student
+    port: 3389

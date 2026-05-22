@@ -1,7 +1,3 @@
-# Лаба 01 Apache с кастомным VirtualHost
-# Демонстрирует все встроенные типы проверок
-# Добавляй свои шаблоны рядом по одному YAML на каждую лабу
-# Запуск через API POST /api/v1/stands/<id>/checks { "template_name": "lab-01" }
 name: "Лаба 01 Apache с кастомным VirtualHost"
 version: "1"
 description: >-

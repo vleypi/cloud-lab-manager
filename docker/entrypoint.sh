@@ -1,3 +1,4 @@
+#!/bin/bash
 set -euo pipefail
 
 cmd="${1:-api}"
